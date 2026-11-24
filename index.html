@@ -238,7 +238,7 @@
                 <form id="form-auth-login" onsubmit="handleLogin(event)" class="p-6 sm:p-7 space-y-4">
                     <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-3 text-[11px] text-medNavy flex items-start gap-2">
                         <i data-lucide="shield-check" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-                        <span>Masuk menggunakan akun kucing yang sudah didaftarkan setelah diagnosa dokter, atau pilih <strong>Daftar Pasien Baru</strong>.</span>
+                        <span>Masuk menggunakan akun kucing yang telah terdaftar dan disetujui oleh dokter penanggung jawab, atau pilih <strong>Daftar Pasien Baru</strong>.</span>
                     </div>
 
                     <div>
@@ -268,9 +268,9 @@
 
                 <!-- FORM DAFTAR PASIEN BARU -->
                 <form id="form-auth-register" onsubmit="handleRegister(event)" class="hidden p-6 sm:p-7 space-y-3.5">
-                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-[11px] text-medNavy flex items-start gap-2">
-                        <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5"></i>
-                        <span>Setelah registrasi pasca diagnosa awal, formulir pemantauan harian <strong>mulai aktif diisi keesokan harinya</strong> (atau langsung diaktifkan oleh Dokter).</span>
+                    <div class="bg-amber-50 border border-amber-300 rounded-xl p-2.5 text-[11px] text-amber-950 flex items-start gap-2">
+                        <i data-lucide="user-check" class="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5"></i>
+                        <span>Akun baru akan berstatus <strong>Menunggu Persetujuan Dokter</strong>. Setelah disetujui oleh dokter penanggung jawab, formulir pemantauan harian siap digunakan.</span>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -310,7 +310,7 @@
                             Sudah punya akun?
                         </button>
                         <button type="submit" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-xl shadow-md hover:shadow-lg transition active:scale-[0.98] cursor-pointer">
-                            <span>Daftar Akun</span>
+                            <span>Ajukan Akun</span>
                             <i data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -355,7 +355,7 @@
                 <form id="form-vet-login" onsubmit="handleVetLogin(event)" class="p-6 sm:p-7 space-y-4">
                     <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-3 text-[11px] text-medNavy flex items-start gap-2">
                         <i data-lucide="lock" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
-                        <span>Masuk dengan akun dokter hewan klinik. Setiap dokter hanya dapat melihat dan mengendalikan pasien kucing miliknya sendiri.</span>
+                        <span>Masuk dengan akun dokter hewan klinik. Setiap dokter hanya dapat melihat, menyetujui, dan mengendalikan pasien kucing miliknya sendiri.</span>
                     </div>
 
                     <div>
@@ -546,13 +546,29 @@
                         </div>
                     </div>
 
+                    <!-- STATE PENDING / REJECTED: MENUNGGU PERSETUJUAN DOKTER -->
+                    <div id="state-pending-approval" class="hidden border-2 border-amber-300 bg-amber-50/80 rounded-2xl p-6 text-center space-y-3 animate-fade-in">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-amber-300 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
+                            <i id="approval-status-icon" data-lucide="hourglass" class="w-7 h-7"></i>
+                        </div>
+                        <span id="approval-status-badge" class="inline-block text-[11px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 rounded-full">
+                            Menunggu Persetujuan Dokter
+                        </span>
+                        <h2 id="approval-status-title" class="font-display font-extrabold text-lg sm:text-xl text-medNavy">
+                            Akun Sedang Diverifikasi Dokter Hewan
+                        </h2>
+                        <p id="approval-status-desc" class="text-xs sm:text-sm text-slate-700 max-w-md mx-auto leading-relaxed">
+                            Pengajuan akun pemantauan untuk kucing Anda telah dikirim ke <strong id="approval-doctor-name">Dokter Hewan</strong>. Formulir harian akan terbuka otomatis setelah dokter menyetujui akun ini.
+                        </p>
+                    </div>
+
                     <!-- STATE A: MENUNGGU KEESOKAN HARINYA -->
                     <div id="state-waiting-tomorrow" class="hidden border-2 border-blue-300 bg-blue-50/70 rounded-2xl p-6 text-center space-y-3 animate-fade-in">
                         <div class="w-14 h-14 rounded-2xl bg-white border border-blue-200 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
                             <i data-lucide="calendar-clock" class="w-7 h-7"></i>
                         </div>
                         <span class="inline-block text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-medNavy px-3 py-1 rounded-full">
-                            Akun Terdaftar • Hari Diagnosa Awal
+                            Akun Disetujui • Hari Diagnosa Awal
                         </span>
                         <h2 class="font-display font-extrabold text-lg sm:text-xl text-medNavy">
                             Formulir Pemantauan Mulai Aktif Besok
@@ -831,10 +847,14 @@
 
             <!-- SUB-VIEW A: DAFTAR PASIEN KUCING -->
             <div id="vet-list-panel" class="space-y-4">
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-xs">
                         <div class="text-[11px] font-semibold text-slate-500">Pasien Saya</div>
                         <div id="vet-stat-total" class="font-display font-extrabold text-xl sm:text-2xl text-medNavy mt-0.5">0</div>
+                    </div>
+                    <div class="bg-amber-50/80 rounded-2xl p-3.5 border border-amber-200 shadow-xs">
+                        <div class="text-[11px] font-semibold text-amber-800">Menunggu Persetujuan</div>
+                        <div id="vet-stat-pending" class="font-display font-extrabold text-xl sm:text-2xl text-amber-700 mt-0.5">0</div>
                     </div>
                     <div class="bg-red-50/70 rounded-2xl p-3.5 border border-red-200 shadow-xs">
                         <div class="text-[11px] font-semibold text-red-700">Perlu Perhatian</div>
@@ -856,6 +876,9 @@
                         <button type="button" onclick="setVetFilter('all')" id="filter-btn-all" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-medNavy text-white transition cursor-pointer">
                             Semua Pasien
                         </button>
+                        <button type="button" onclick="setVetFilter('pending')" id="filter-btn-pending" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-800 transition cursor-pointer">
+                            ⏳ Menunggu Persetujuan
+                        </button>
                         <button type="button" onclick="setVetFilter('danger')" id="filter-btn-danger" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700 transition cursor-pointer">
                             ⚠️ Ada Tanda Bahaya
                         </button>
@@ -868,7 +891,7 @@
                 <div id="vet-patient-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
             </div>
 
-            <!-- SUB-VIEW B: DETAIL PROGRES, KENDALI MULAI/STOP & KOMENTAR DOKTER -->
+            <!-- SUB-VIEW B: DETAIL PROGRES, PERSETUJUAN AKUN, KENDALI MULAI/STOP & KOMENTAR DOKTER -->
             <div id="vet-detail-panel" class="hidden space-y-5 animate-fade-in">
                 <div class="flex items-center justify-between">
                     <button type="button" onclick="closeVetDetail()" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-medNavy bg-white hover:bg-blue-50 border border-slate-300 px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer">
@@ -880,11 +903,37 @@
                     </span>
                 </div>
 
+                <!-- BANNER PERSETUJUAN AKUN PASIEN -->
+                <div id="detail-approval-banner" class="hidden bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                    <div class="space-y-0.5">
+                        <div class="text-xs font-extrabold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                            <i data-lucide="user-check" class="w-4 h-4 text-amber-700"></i>
+                            <span id="detail-approval-title">Persetujuan Akun Pasien Baru</span>
+                        </div>
+                        <p id="detail-approval-desc" class="text-xs text-amber-900/90">
+                            Pemilik kucing mengajukan akun ini untuk pemantauan terapi diabetes. Setujui agar akun dapat mengisi laporan harian.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="button" onclick="approvePatientAccount(event)" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
+                            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                            <span>Setujui Akun</span>
+                        </button>
+                        <button type="button" onclick="rejectPatientAccount(event)" class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
+                            <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+                            <span>Tolak Akun</span>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="bg-white rounded-2xl border-2 border-medNavy p-4 sm:p-5 shadow-sm space-y-4">
                     <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-200">
                         <div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <h2 id="detail-patient-name" class="font-display font-extrabold text-xl text-medNavy">-</h2>
+                                <span id="detail-approval-status-tag" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                                    Menunggu Persetujuan
+                                </span>
                                 <span id="detail-danger-pill" class="hidden text-[11px] font-extrabold bg-red-100 text-red-700 border border-red-300 px-2.5 py-0.5 rounded-full">
                                     ⚠️ Ada Tanda Bahaya
                                 </span>
@@ -1132,7 +1181,6 @@
         let isCloudConnected = false;
         let currentUploadedMedia = null;
         let isUserEditingForm = false;
-        // Menandakan sesi aktif hanya berlaku selama tab/halaman berjalan setelah login/daftar eksplisit
         let isSessionAuthenticated = false;
 
         let appState = {
@@ -1219,12 +1267,15 @@
             return list.slice().reverse();
         }
 
-        function hasExplicitLogoutFlag() {
-            try {
-                return sessionStorage.getItem(LOGGED_OUT_KEY) === '1';
-            } catch (e) {
-                return false;
+        function getApprovalStatus(acc) {
+            if (!acc) return 'pending';
+            // Akun lama yang sudah memiliki catatan atau belum punya field approvalStatus dianggap sudah disetujui
+            if (!acc.approvalStatus) {
+                const hasExistingData = Object.keys(normalizeRecordsMap(acc.records)).length > 0 ||
+                    (Array.isArray(acc.vetEvaluations) && acc.vetEvaluations.length > 0);
+                return hasExistingData ? 'approved' : 'pending';
             }
+            return acc.approvalStatus;
         }
 
         function setExplicitLogoutFlag(val) {
@@ -1255,6 +1306,7 @@
                         if (acc) {
                             acc.records = normalizeRecordsMap(acc.records);
                             acc.vetEvaluations = Array.isArray(acc.vetEvaluations) ? acc.vetEvaluations.filter(Boolean) : [];
+                            acc.approvalStatus = getApprovalStatus(acc);
                         }
                     });
                 }
@@ -1265,7 +1317,6 @@
 
         function saveStateToStorage(syncCloud = true) {
             try {
-                // Jangan simpan sesi login aktif ke localStorage agar buka/refresh halaman selalu mulai dari halaman awal
                 const payloadToSave = {
                     ...appState,
                     currentUsername: null,
@@ -1333,9 +1384,13 @@
                 const localEvals = Array.isArray(localAcc.vetEvaluations) ? localAcc.vetEvaluations.filter(Boolean) : [];
                 const combinedEvals = localEvals.length >= remoteEvals.length ? localEvals : remoteEvals;
 
+                // Prioritaskan status persetujuan terbaru dari cloud jika dokter mengubahnya
+                const resolvedApprovalStatus = remoteAcc.approvalStatus || localAcc.approvalStatus || 'pending';
+
                 mergedAccounts[k] = {
-                    ...remoteAcc,
                     ...localAcc,
+                    ...remoteAcc,
+                    approvalStatus: resolvedApprovalStatus,
                     records: combinedRecs,
                     vetEvaluations: combinedEvals
                 };
@@ -1360,6 +1415,7 @@
                     const acc = getCurrentAccount();
                     renderPatientVetFeedback(acc);
                     renderDayPills();
+                    updatePatientScreenState();
                 }
                 if (isSessionAuthenticated && !document.getElementById('view-vet').classList.contains('hidden') && getCurrentDoctor()) {
                     if (appState.selectedVetUsername) {
@@ -1511,7 +1567,6 @@
         }
 
         function bindDelegatedInteractions() {
-            // Event delegation agar tombol tetap responsif meski DOM / ikon di-render ulang
             document.addEventListener('click', (event) => {
                 const target = event.target;
                 if (!target || typeof target.closest !== 'function') return;
@@ -1576,7 +1631,6 @@
             populateDoctorSelectOptions();
             generateQrCode();
 
-            // Selalu mulai dari halaman awal (landing) dan bersihkan sisa sesi lama agar wajib melewati login
             isSessionAuthenticated = false;
             appState.currentUsername = null;
             appState.currentDoctorUsername = null;
@@ -1620,12 +1674,6 @@
             }
         }
 
-        function handleBackdropClick(modalId, event) {
-            if (event && event.target && event.target.id === modalId) {
-                closeModal(modalId, event);
-            }
-        }
-
         let toastTimer = null;
         function showToast(msg) {
             const toast = document.getElementById('toast');
@@ -1643,7 +1691,7 @@
         }
 
         // ==========================================
-        // AUTENTIKASI PASIEN
+        // AUTENTIKASI & PERSETUJUAN AKUN PASIEN
         // ==========================================
         function getCurrentAccount() {
             if (!isSessionAuthenticated || !appState.currentUsername) return null;
@@ -1708,7 +1756,7 @@
             const password = document.getElementById('login-password').value;
 
             let acc = appState.accounts[username];
-            if (!acc && getActiveCloudUrl()) {
+            if (getActiveCloudUrl()) {
                 const remoteData = await fetchCloudOnceViaRest();
                 if (remoteData) {
                     applyRemoteSnapshot(remoteData);
@@ -1722,6 +1770,17 @@
             }
             if (acc.password !== password) {
                 showToast('Password salah. Periksa kembali password Anda.');
+                return;
+            }
+
+            const approvalStatus = getApprovalStatus(acc);
+            if (approvalStatus === 'pending') {
+                const doc = appState.doctors[acc.dokterUsername];
+                showToast(`Akun ${acc.namaPasien} masih menunggu persetujuan ${doc ? doc.fullName : 'dokter'}.`);
+                return;
+            }
+            if (approvalStatus === 'rejected') {
+                showToast(`Pengajuan akun ${acc.namaPasien} ditolak oleh dokter. Hubungi dokter penanggung jawab.`);
                 return;
             }
 
@@ -1752,6 +1811,7 @@
 
             const todayIso = getTodayIso();
             const startIso = addDaysIso(todayIso, 1);
+            const doc = appState.doctors[dokterUsername];
 
             appState.accounts[username] = {
                 username,
@@ -1760,6 +1820,8 @@
                 namaOwner,
                 usia,
                 dokterUsername,
+                approvalStatus: 'pending',
+                requestedAtIso: todayIso,
                 jenisObat: '',
                 mingguKe: '1',
                 jadwalKontrol: formatIndoDateFromIso(addDaysIso(startIso, 7)),
@@ -1772,12 +1834,12 @@
                 vetEvaluations: []
             };
 
-            setExplicitLogoutFlag(false);
-            isSessionAuthenticated = true;
-            appState.currentUsername = username;
             saveStateToStorage();
-            showToast(`Akun ${namaPasien} berhasil dibuat!`);
-            enterPatientCard();
+            document.getElementById('form-auth-register').reset();
+            switchAuthTab('login');
+            const loginUserEl = document.getElementById('login-username');
+            if (loginUserEl) loginUserEl.value = username;
+            showToast(`Pengajuan akun ${namaPasien} terkirim! Menunggu persetujuan ${doc ? doc.fullName : 'dokter'}.`);
         }
 
         function logoutPatient(event) {
@@ -1842,7 +1904,7 @@
             const password = document.getElementById('vet-login-password').value;
 
             let doc = appState.doctors[username];
-            if (!doc && getActiveCloudUrl()) {
+            if (getActiveCloudUrl()) {
                 const remoteData = await fetchCloudOnceViaRest();
                 if (remoteData) {
                     applyRemoteSnapshot(remoteData);
@@ -1999,14 +2061,49 @@
             const acc = getCurrentAccount();
             if (!acc) return;
 
-            const sched = computePatientScheduleState(acc);
+            const approvalStatus = getApprovalStatus(acc);
+            const approvalBox = document.getElementById('state-pending-approval');
             const waitBox = document.getElementById('state-waiting-tomorrow');
             const pauseBox = document.getElementById('state-paused-control');
             const dailyForm = document.getElementById('daily-form');
+            const simBar = document.getElementById('patient-sim-bar');
 
+            if (approvalBox) approvalBox.classList.add('hidden');
             if (waitBox) waitBox.classList.add('hidden');
             if (pauseBox) pauseBox.classList.add('hidden');
             if (dailyForm) dailyForm.classList.add('hidden');
+
+            if (approvalStatus !== 'approved') {
+                if (simBar) simBar.classList.add('hidden');
+                const doc = appState.doctors[acc.dokterUsername];
+                const docName = doc ? doc.fullName : 'Dokter Penanggung Jawab';
+                const badgeEl = document.getElementById('approval-status-badge');
+                const titleEl = document.getElementById('approval-status-title');
+                const descEl = document.getElementById('approval-status-desc');
+
+                if (approvalStatus === 'rejected') {
+                    if (badgeEl) {
+                        badgeEl.textContent = 'Pengajuan Ditolak Dokter';
+                        badgeEl.className = 'inline-block text-[11px] font-extrabold uppercase tracking-wider bg-red-100 text-red-800 border border-red-300 px-3 py-1 rounded-full';
+                    }
+                    if (titleEl) titleEl.textContent = 'Akun Belum Disetujui Dokter Hewan';
+                    if (descEl) descEl.innerHTML = `Pengajuan akun untuk <strong>${escapeHtml(acc.namaPasien)}</strong> ditolak oleh <strong>${escapeHtml(docName)}</strong>. Silakan hubungi dokter untuk informasi lebih lanjut.`;
+                } else {
+                    if (badgeEl) {
+                        badgeEl.textContent = 'Menunggu Persetujuan Dokter';
+                        badgeEl.className = 'inline-block text-[11px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 rounded-full';
+                    }
+                    if (titleEl) titleEl.textContent = 'Akun Sedang Menunggu Persetujuan Dokter';
+                    if (descEl) descEl.innerHTML = `Akun kucing <strong>${escapeHtml(acc.namaPasien)}</strong> telah terdaftar dan menunggu persetujuan dari <strong>${escapeHtml(docName)}</strong>. Setelah disetujui, formulir pemantauan harian akan aktif.`;
+                }
+                if (approvalBox) approvalBox.classList.remove('hidden');
+                refreshIconsSafe();
+                return;
+            }
+
+            if (simBar) simBar.classList.remove('hidden');
+
+            const sched = computePatientScheduleState(acc);
 
             if (sched.mode === 'waiting_tomorrow') {
                 const startEl = document.getElementById('waiting-start-date');
@@ -2077,13 +2174,13 @@
         function selectPatientDay(day) {
             const acc = getCurrentAccount();
             if (!acc) return;
-            const sched = computePatientScheduleState(acc);
+            if (getApprovalStatus(acc) !== 'approved') return;
 
+            const sched = computePatientScheduleState(acc);
             if (sched.mode === 'waiting_tomorrow') {
                 showToast('Klik "Mulai Isi Formulir Hari Ini" atau tunggu mulai aktif besok.');
                 return;
             }
-
             if (sched.mode === 'active' && day > sched.activeDay) {
                 showToast(`Hari ke-${day} belum terbuka. Formulir berganti otomatis setiap 24 jam.`);
                 return;
@@ -2166,9 +2263,7 @@
                 img.src = media.dataUrl;
                 img.classList.remove('hidden');
             }
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
+            refreshIconsSafe();
         }
 
         function removeMediaAttachment() {
@@ -2248,6 +2343,11 @@
             e.preventDefault();
             const acc = getCurrentAccount();
             if (!acc) return;
+
+            if (getApprovalStatus(acc) !== 'approved') {
+                showToast('Akun belum disetujui dokter penanggung jawab.');
+                return;
+            }
 
             const sched = computePatientScheduleState(acc);
             const day = acc.selectedDay || sched.activeDay;
@@ -2353,6 +2453,7 @@
         }
 
         function isPatientCompletedOrStopped(acc) {
+            if (getApprovalStatus(acc) !== 'approved') return false;
             const sched = computePatientScheduleState(acc);
             return sched.mode === 'completed_control' || sched.mode === 'stopped_by_vet';
         }
@@ -2381,7 +2482,7 @@
 
         function setVetFilter(filterType) {
             appState.vetFilter = filterType;
-            ['all', 'danger', 'completed'].forEach(f => {
+            ['all', 'pending', 'danger', 'completed'].forEach(f => {
                 const btn = document.getElementById(`filter-btn-${f}`);
                 if (!btn) return;
                 if (f === filterType) {
@@ -2398,19 +2499,24 @@
             if (!doc) return;
 
             const myPatients = getDoctorPatients(doc.username);
+            const pendingCount = myPatients.filter(acc => getApprovalStatus(acc) === 'pending').length;
             const dangerCount = myPatients.filter(hasPatientDanger).length;
             const completedCount = myPatients.filter(isPatientCompletedOrStopped).length;
 
             const totalEl = document.getElementById('vet-stat-total');
+            const pendingEl = document.getElementById('vet-stat-pending');
             const dangerEl = document.getElementById('vet-stat-danger');
             const completedEl = document.getElementById('vet-stat-completed');
             if (totalEl) totalEl.textContent = myPatients.length;
+            if (pendingEl) pendingEl.textContent = pendingCount;
             if (dangerEl) dangerEl.textContent = dangerCount;
             if (completedEl) completedEl.textContent = completedCount;
 
             const searchEl = document.getElementById('vet-search-input');
             const query = (searchEl ? searchEl.value : '').trim().toLowerCase();
             const filtered = myPatients.filter(acc => {
+                const appStatus = getApprovalStatus(acc);
+                if (appState.vetFilter === 'pending' && appStatus !== 'pending') return false;
                 if (appState.vetFilter === 'danger' && !hasPatientDanger(acc)) return false;
                 if (appState.vetFilter === 'completed' && !isPatientCompletedOrStopped(acc)) return false;
                 if (query) {
@@ -2436,13 +2542,18 @@
             container.innerHTML = filtered.map(acc => {
                 const records = normalizeRecordsMap(acc.records);
                 const sched = computePatientScheduleState(acc);
+                const appStatus = getApprovalStatus(acc);
                 const danger = hasPatientDanger(acc);
                 const filledCount = Object.keys(records).length;
                 const evals = normalizeEvaluationsList(acc.vetEvaluations);
                 const latestEval = evals.length > 0 ? evals[0] : null;
 
                 let statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Aktif • Hari ${sched.activeDay}/7</span>`;
-                if (sched.mode === 'waiting_tomorrow') {
+                if (appStatus === 'pending') {
+                    statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">⏳ Menunggu Persetujuan</span>`;
+                } else if (appStatus === 'rejected') {
+                    statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">✕ Ditolak</span>`;
+                } else if (sched.mode === 'waiting_tomorrow') {
                     statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">Mulai Besok</span>`;
                 } else if (sched.mode === 'completed_control') {
                     statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Hari Kontrol (7/7)</span>`;
@@ -2450,8 +2561,19 @@
                     statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">Dihentikan Dokter</span>`;
                 }
 
+                const quickApprovalActions = appStatus === 'pending' ? `
+                    <div onclick="event.stopPropagation()" class="flex items-center gap-2 pt-2 border-t border-amber-200/80">
+                        <button type="button" onclick="approvePatientAccount(event, '${escapeHtml(acc.username)}')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl transition cursor-pointer">
+                            ✓ Setujui Akun
+                        </button>
+                        <button type="button" onclick="rejectPatientAccount(event, '${escapeHtml(acc.username)}')" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs py-2 px-3 rounded-xl transition cursor-pointer">
+                            Tolak
+                        </button>
+                    </div>
+                ` : '';
+
                 return `
-                    <div onclick="openVetPatientDetail('${escapeHtml(acc.username)}')" class="cursor-pointer bg-white hover:bg-blue-50/30 rounded-2xl border-2 ${danger ? 'border-red-300' : 'border-slate-200 hover:border-medNavy'} p-4 shadow-xs transition flex flex-col justify-between gap-3">
+                    <div onclick="openVetPatientDetail('${escapeHtml(acc.username)}')" class="cursor-pointer bg-white hover:bg-blue-50/30 rounded-2xl border-2 ${appStatus === 'pending' ? 'border-amber-300' : (danger ? 'border-red-300' : 'border-slate-200 hover:border-medNavy')} p-4 shadow-xs transition flex flex-col justify-between gap-3">
                         <div class="flex items-start justify-between gap-2">
                             <div>
                                 <div class="flex items-center gap-2">
@@ -2472,6 +2594,8 @@
                             ${latestEval ? `💬 ${escapeHtml(latestEval.comment)}` : '<span class="italic text-slate-400">Belum ada catatan evaluasi dokter.</span>'}
                         </div>
 
+                        ${quickApprovalActions}
+
                         <div class="flex justify-end">
                             <span class="text-xs font-bold text-medNavy inline-flex items-center gap-1">
                                 Kelola Pantauan & Evaluasi <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
@@ -2481,8 +2605,51 @@
                 `;
             }).join('');
 
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
+            refreshIconsSafe();
+        }
+
+        function approvePatientAccount(event, targetUsername = null) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const doc = getCurrentDoctor();
+            const username = targetUsername || appState.selectedVetUsername;
+            const acc = appState.accounts[username];
+            if (!doc || !acc || acc.dokterUsername !== doc.username) return;
+
+            acc.approvalStatus = 'approved';
+            acc.approvedAtIso = getTodayIso();
+            acc.approvedBy = doc.fullName;
+            saveStateToStorage();
+
+            showToast(`Akun pasien ${acc.namaPasien} telah disetujui!`);
+            if (appState.selectedVetUsername === username) {
+                openVetPatientDetail(username);
+            } else {
+                renderVetPatientList();
+            }
+        }
+
+        function rejectPatientAccount(event, targetUsername = null) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const doc = getCurrentDoctor();
+            const username = targetUsername || appState.selectedVetUsername;
+            const acc = appState.accounts[username];
+            if (!doc || !acc || acc.dokterUsername !== doc.username) return;
+
+            acc.approvalStatus = 'rejected';
+            acc.rejectedAtIso = getTodayIso();
+            saveStateToStorage();
+
+            showToast(`Pengajuan akun ${acc.namaPasien} ditolak.`);
+            if (appState.selectedVetUsername === username) {
+                openVetPatientDetail(username);
+            } else {
+                renderVetPatientList();
             }
         }
 
@@ -2500,6 +2667,7 @@
             document.getElementById('vet-detail-panel').classList.remove('hidden');
 
             const sched = computePatientScheduleState(acc);
+            const appStatus = getApprovalStatus(acc);
             const danger = hasPatientDanger(acc);
 
             document.getElementById('detail-patient-name').textContent = acc.namaPasien;
@@ -2508,12 +2676,37 @@
             document.getElementById('detail-med-info').textContent = acc.jenisObat || 'Belum diisi';
             document.getElementById('detail-control-info').textContent = `Kontrol: ${acc.jadwalKontrol || '-'}`;
 
+            const approvalBanner = document.getElementById('detail-approval-banner');
+            const approvalTag = document.getElementById('detail-approval-status-tag');
+            if (appStatus === 'pending') {
+                if (approvalBanner) approvalBanner.classList.remove('hidden');
+                if (approvalTag) {
+                    approvalTag.textContent = '⏳ Menunggu Persetujuan';
+                    approvalTag.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300';
+                }
+            } else if (appStatus === 'rejected') {
+                if (approvalBanner) approvalBanner.classList.remove('hidden');
+                if (approvalTag) {
+                    approvalTag.textContent = '✕ Ditolak';
+                    approvalTag.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300';
+                }
+            } else {
+                if (approvalBanner) approvalBanner.classList.add('hidden');
+                if (approvalTag) {
+                    approvalTag.textContent = '✓ Akun Disetujui';
+                    approvalTag.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+                }
+            }
+
             const dangerPill = document.getElementById('detail-danger-pill');
             if (danger) dangerPill.classList.remove('hidden');
             else dangerPill.classList.add('hidden');
 
             const monPill = document.getElementById('detail-monitoring-pill');
-            if (sched.mode === 'stopped_by_vet') {
+            if (appStatus !== 'approved') {
+                monPill.textContent = appStatus === 'rejected' ? '✕ Akun Ditolak' : '⏳ Menunggu Persetujuan Dokter';
+                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300';
+            } else if (sched.mode === 'stopped_by_vet') {
                 monPill.textContent = '⏸️ Pemantauan Dihentikan Dokter';
                 monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-slate-200 text-slate-700 border border-slate-300';
             } else if (sched.mode === 'completed_control') {
@@ -2530,9 +2723,7 @@
             renderVetCharts(acc);
             renderVetCommentHistory(acc);
             renderVetDailyRecap(acc);
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
+            refreshIconsSafe();
         }
 
         function closeVetDetail() {
@@ -2546,6 +2737,7 @@
             const acc = appState.accounts[appState.selectedVetUsername];
             if (!acc) return;
 
+            acc.approvalStatus = 'approved';
             const todayIso = getTodayIso();
             const currentWeek = parseInt(acc.mingguKe || '1', 10) || 1;
             const nextWeek = Object.keys(normalizeRecordsMap(acc.records)).length >= 7 ? currentWeek + 1 : currentWeek;
@@ -2560,7 +2752,7 @@
 
             saveStateToStorage();
             openVetPatientDetail(acc.username);
-            showToast(`Siklus pemantauan minggu ke-${nextWeek} untuk ${acc.namaPasien} telah diaktifkan!`);
+            showToast(`Akun disetujui & siklus pemantauan minggu ke-${nextWeek} untuk ${acc.namaPasien} telah diaktifkan!`);
         }
 
         function doctorStopMonitoring() {
@@ -2767,7 +2959,6 @@
                 }
             }
 
-            // Fallback QR API jika skrip QRCode.js gagal dimuat atau diblokir jaringan
             if (!rendered) {
                 const fallbackImg = document.createElement('img');
                 fallbackImg.alt = 'QR Code Cat Diabetic Care';

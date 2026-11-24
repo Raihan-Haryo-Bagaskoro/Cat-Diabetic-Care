@@ -341,7 +341,7 @@
                         <label for="vet-login-username" class="block font-bold text-medNavy text-xs sm:text-sm mb-1">
                             Username Dokter :
                         </label>
-                        <input type="text" id="vet-login-username" required placeholder="Masukkan username dokter" class="w-full rounded-xl border-2 border-slate-300 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-medNavy focus:bg-blue-50/30 transition">
+                        <input type="text" id="vet-login-username" required placeholder="Masukkan username dokter (cth: nabila / arya)" class="w-full rounded-xl border-2 border-slate-300 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-medNavy focus:bg-blue-50/30 transition">
                     </div>
 
                     <div>
@@ -386,16 +386,16 @@
                     </div>
 
                     <div>
-                        <label for="vet-reg-sip" class="block font-bold text-medNavy text-xs mb-1">Nomor SIP / Klinik (Opsional)</label>
-                        <input type="text" id="vet-reg-sip" placeholder="cth: Klinik Hewan Sehat Bandung" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                        <label for="vet-reg-clinic" class="block font-bold text-medNavy text-xs mb-1">Nama Klinik / Poli (Opsional)</label>
+                        <input type="text" id="vet-reg-clinic" placeholder="cth: Klinik Hewan Sehat Bandung" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
                     </div>
 
                     <div class="pt-2 flex items-center justify-between gap-2">
                         <button type="button" onclick="switchVetAuthTab('login')" class="text-xs font-semibold text-slate-500 hover:text-medNavy">
-                            Sudah punya akun?
+                            Sudah punya akun dokter?
                         </button>
                         <button type="submit" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-xl shadow-md hover:shadow-lg transition active:scale-[0.98]">
-                            <span>Buat Akun Dokter</span>
+                            <span>Daftar Dokter</span>
                             <i data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -405,368 +405,258 @@
 
 
         <!-- ========================================================= -->
-        <!-- HALAMAN 3: KARTU PEMANTAUAN HARIAN PASIEN                 -->
+        <!-- HALAMAN 3: KARTU PEMANTAUAN HARIAN PASIEN (OWNER)         -->
         <!-- ========================================================= -->
-        <section id="view-patient" class="hidden w-full max-w-2xl animate-fade-in pb-10">
-            
-            <!-- Status Sinkronisasi & Barcode Kalung -->
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
-                <button type="button" onclick="openCloudConfigModal()" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition">
-                    <span id="patient-cloud-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="patient-sync-label">Tersimpan di HP</span> • <strong id="active-account-badge">Pasien</strong>
-                </button>
+        <section id="view-patient" class="hidden w-full max-w-2xl animate-fade-in my-2">
+            <!-- Top Bar Aksi Pasien -->
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <div class="flex items-center gap-2">
-                    <button type="button" onclick="openQrModal()" class="text-[11px] font-bold text-medNavy bg-white hover:bg-blue-50 border border-slate-300 px-2.5 py-1 rounded-lg flex items-center gap-1 transition">
-                        <i data-lucide="qr-code" class="w-3 h-3 text-blue-600"></i>
+                    <span id="patient-cloud-pill" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Cloud Sinkron</span>
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="openQrModal()" class="inline-flex items-center gap-1.5 text-xs font-bold text-medNavy bg-white hover:bg-medBlueLight border-2 border-medNavy px-3 py-1.5 rounded-xl shadow-2xs transition">
+                        <i data-lucide="qr-code" class="w-4 h-4 text-blue-700"></i>
                         <span>Barcode Kalung</span>
+                    </button>
+                    <button type="button" onclick="logoutPatient()" class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-red-700 bg-white hover:bg-red-50 border border-slate-300 px-3 py-1.5 rounded-xl transition">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        <span>Keluar</span>
                     </button>
                 </div>
             </div>
 
-            <!-- KOTAK KOMENTAR / EVALUASI DARI DOKTER HEWAN -->
-            <div id="patient-vet-feedback-box" class="hidden mb-4 bg-white rounded-2xl border-2 border-blue-400 shadow-sm overflow-hidden animate-fade-in">
-                <div class="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
-                    <div class="flex items-center gap-2 text-medNavy font-bold text-xs sm:text-sm">
-                        <i data-lucide="stethoscope" class="w-4 h-4 text-blue-600"></i>
-                        <span>Evaluasi & Catatan Dokter Hewan</span>
+            <!-- Kartu Rekam Medis Utama -->
+            <div class="bg-white rounded-3xl shadow-xl border-2 border-medNavy overflow-hidden">
+                <!-- Header Kartu -->
+                <div class="bg-medBlueLight border-b-2 border-medNavy px-5 py-4 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-2xl bg-white border-2 border-medNavy flex items-center justify-center shrink-0">
+                            <i data-lucide="cat" class="w-6 h-6 text-medNavy"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-display font-extrabold text-base sm:text-lg text-medNavy uppercase tracking-wide leading-tight">
+                                CAT DIABETIC CARE
+                            </h2>
+                            <p class="text-[11px] sm:text-xs font-semibold text-slate-600">
+                                Kartu Pemantauan Harian Pasien (Siklus 7 Hari)
+                            </p>
+                        </div>
                     </div>
-                    <span id="patient-vet-status-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        Lanjutkan Terapi
+                    <span id="patient-cycle-badge" class="bg-medNavy text-white text-xs font-extrabold px-3 py-1.5 rounded-xl shrink-0">
+                        Minggu ke-1
                     </span>
                 </div>
-                <div class="p-4 text-xs sm:text-sm space-y-1.5">
-                    <p id="patient-vet-comment-text" class="text-slate-800 font-medium leading-relaxed"></p>
-                    <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                        <span id="patient-vet-author" class="font-semibold text-medNavy">Dokter Hewan</span>
-                        <span id="patient-vet-time">Baru saja</span>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Bar Navigasi Siklus Hari 1 - 7 -->
-            <div id="patient-sim-bar" class="bg-white rounded-2xl p-3.5 mb-4 border border-slate-300 shadow-xs">
-                <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-100">
+                <!-- Identitas Pasien -->
+                <div class="p-5 sm:p-6 bg-slate-50/70 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
                     <div class="flex items-center gap-2">
-                        <span class="bg-blue-50 text-medNavy border border-blue-200 text-[11px] font-bold px-2.5 py-0.5 rounded-md flex items-center gap-1">
-                            <i data-lucide="calendar" class="w-3 h-3 text-blue-600"></i> Jadwal Otomatis 7 Hari
-                        </span>
+                        <span class="font-bold text-slate-500 w-24 shrink-0">Nama Pasien:</span>
+                        <span id="disp-nama-pasien" class="font-extrabold text-medNavy">-</span>
                     </div>
-                    <span class="text-[11px] text-slate-500 font-medium">Auto-submit & ganti form setiap 24 jam</span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-slate-500 w-24 shrink-0">Nama Owner:</span>
+                        <span id="disp-nama-owner" class="font-bold text-slate-800">-</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-slate-500 w-24 shrink-0">Usia Kucing:</span>
+                        <span id="disp-usia" class="font-bold text-slate-800">-</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-slate-500 w-24 shrink-0">Dokter Hewan:</span>
+                        <span id="disp-dokter" class="font-bold text-blue-800">-</span>
+                    </div>
                 </div>
 
-                <div class="flex items-center justify-between gap-1.5">
-                    <span class="text-[11px] font-bold text-slate-500">Hari ke-:</span>
-                    <div id="day-pills" class="flex-grow grid grid-cols-7 gap-1"></div>
+                <!-- Banner Evaluasi / Instruksi Dokter -->
+                <div id="patient-vet-note-box" class="mx-5 sm:mx-6 mt-5 bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 text-xs font-extrabold text-medNavy uppercase tracking-wider mb-1">
+                        <i data-lucide="stethoscope" class="w-4 h-4 text-blue-700"></i>
+                        <span>Arahan & Evaluasi Dokter Penanggung Jawab</span>
+                    </div>
+                    <p id="patient-vet-note-text" class="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
+                        Belum ada catatan khusus. Lakukan pemantauan rutin sesuai jadwal terapi.
+                    </p>
                 </div>
-            </div>
 
-            <!-- KARTU UTAMA HALAMAN 3 -->
-            <div class="bg-white rounded-2xl shadow-lg border-2 border-medNavy overflow-hidden">
-                <div class="bg-medBlueLight border-b-2 border-medNavy px-4 sm:px-6 py-3.5 flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5">
-                        <svg viewBox="0 0 180 140" class="w-9 h-8 shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M44 54 L34 16 L68 38 C75 36 82 35 90 35 C98 35 105 36 112 38 L146 16 L136 54 C143 64 146 75 146 86 C146 114 121 130 90 130 C59 130 34 114 34 86 C34 75 37 64 44 54 Z" fill="#ffffff" stroke="#1e3a5f" stroke-width="6" stroke-linejoin="round"/>
-                            <path d="M60 73 Q68 63 76 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
-                            <path d="M104 73 Q112 63 120 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
-                            <path d="M77 95 Q83.5 103 90 94 Q96.5 103 103 95" stroke="#1e3a5f" stroke-width="4.5" stroke-linecap="round" fill="none"/>
-                        </svg>
+                <!-- Status Banner (Menunggu H+1 / Hari Kontrol / Dihentikan Dokter) -->
+                <div id="patient-status-banner" class="hidden mx-5 sm:mx-6 mt-4 rounded-2xl p-4 border-2"></div>
+
+                <!-- Navigasi Tab Hari 1 - Hari 7 -->
+                <div class="px-5 sm:px-6 pt-5">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-extrabold text-medNavy uppercase tracking-wider">Pilih Hari Pemantauan:</span>
+                        <span id="patient-progress-text" class="text-xs font-bold text-emerald-700">0 / 7 Hari Terisi</span>
+                    </div>
+                    <div id="day-tabs-container" class="grid grid-cols-7 gap-1.5 sm:gap-2"></div>
+                </div>
+
+                <!-- FORMULIR HARIAN -->
+                <form id="form-daily-log" onsubmit="saveDailyLog(event)" class="p-5 sm:p-6 space-y-5">
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
                         <div>
-                            <h1 class="font-display font-extrabold text-medNavy text-base sm:text-lg tracking-wide uppercase leading-tight">
-                                CAT DIABETIC CARE
-                            </h1>
-                            <p class="text-[11px] text-slate-600 font-medium">Kartu Kontrol Terapi Diabetes • <span id="header-doctor-name" class="font-bold text-medNavy">Dokter</span></p>
+                            <h3 id="form-day-title" class="font-display font-extrabold text-base sm:text-lg text-medNavy">
+                                Laporan Hari ke-1
+                            </h3>
+                            <p id="form-day-subtitle" class="text-xs text-slate-500">Isi kondisi kucing Anda hari ini dengan lengkap</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label for="log-date" class="text-xs font-bold text-slate-600">Tanggal:</label>
+                            <input type="date" id="log-date" required class="rounded-xl border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-medNavy bg-slate-50 focus:outline-none focus:border-medNavy">
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-1.5">
-                        <button type="button" onclick="openQrModal()" title="Barcode Tag Kalung Kucing" class="p-2 rounded-lg bg-white border border-slate-300 text-medNavy hover:bg-blue-50 transition">
-                            <i data-lucide="qr-code" class="w-4 h-4"></i>
+                    <!-- 1. Terapi Obat & Insulin -->
+                    <div class="bg-medBlueLight/50 border border-blue-200 rounded-2xl p-4 space-y-3">
+                        <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-medNavy">
+                            <i data-lucide="syringe" class="w-4 h-4 text-blue-700"></i>
+                            <span>1. Pemberian Obat & Terapi Insulin</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Nama Obat / Insulin</label>
+                                <input type="text" id="log-med-name" placeholder="cth: Lantus / Metronidazole" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Jam Pemberian</label>
+                                <input type="time" id="log-insulin-time" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Dosis (Unit / ml / tab)</label>
+                                <input type="text" id="log-insulin-dose" placeholder="cth: 1.5 U" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Nafsu Makan Pagi & Malam -->
+                    <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
+                        <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-medNavy">
+                            <i data-lucide="utensils" class="w-4 h-4 text-blue-700"></i>
+                            <span>2. Nafsu Makan (Pagi & Malam)</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <span class="block font-bold text-medNavy mb-2">Makan Pagi:</span>
+                                <div class="flex flex-wrap gap-3">
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-morning" value="Habis" class="accent-medNavy"> Habis
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-morning" value="Sisa Sedikit" class="accent-medNavy"> Sisa Sedikit
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-red-700">
+                                        <input type="radio" name="eat-morning" value="Tidak Mau Makan" class="accent-red-600"> Tidak Mau Makan
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <span class="block font-bold text-medNavy mb-2">Makan Malam:</span>
+                                <div class="flex flex-wrap gap-3">
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-night" value="Habis" class="accent-medNavy"> Habis
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-night" value="Sisa Sedikit" class="accent-medNavy"> Sisa Sedikit
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-red-700">
+                                        <input type="radio" name="eat-night" value="Tidak Mau Makan" class="accent-red-600"> Tidak Mau Makan
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Konsumsi Air Minum, Pipis, BAB & Aktivitas -->
+                    <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
+                        <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-medNavy">
+                            <i data-lucide="droplets" class="w-4 h-4 text-blue-700"></i>
+                            <span>3. Minum, Pipis, Feses & Aktivitas</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Total Air Minum (ml / hari)</label>
+                                <input type="number" id="log-water" min="0" placeholder="cth: 180" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Frekuensi Pipis (kali / hari)</label>
+                                <input type="number" id="log-pee" min="0" placeholder="cth: 3" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Kondisi Feses (BAB)</label>
+                                <select id="log-poop" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold bg-white focus:outline-none focus:border-medNavy">
+                                    <option value="Normal (Padat)">Normal (Padat)</option>
+                                    <option value="Lembek">Lembek</option>
+                                    <option value="Diare / Cair">Diare / Cair</option>
+                                    <option value="Belum BAB">Belum BAB</option>
+                                    <option value="Berdarah (Darurat)">Berdarah (Darurat)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-600 mb-1">Tingkat Aktivitas Kucing</label>
+                                <select id="log-activity" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold bg-white focus:outline-none focus:border-medNavy">
+                                    <option value="Aktif & Responsif">Aktif & Responsif</option>
+                                    <option value="Cukup Aktif">Cukup Aktif</option>
+                                    <option value="Lemas / Banyak Tidur">Lemas / Banyak Tidur</option>
+                                    <option value="Sangat Lemas / Sempoyongan">Sangat Lemas / Sempoyongan</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Indikator Tanda Bahaya -->
+                    <div class="bg-dangerBg border-2 border-dangerBorder rounded-2xl p-4 space-y-2.5">
+                        <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-dangerText">
+                            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                            <span>4. Checklist Tanda Bahaya (Centang Jika Muncul)</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-red-900">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" value="Muntah berulang" class="med-checkbox danger-checkbox danger-item">
+                                <span>Muntah berulang</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" value="Gemetar / Kejang (Hipoglikemia)" class="med-checkbox danger-checkbox danger-item">
+                                <span>Gemetar / Kejang (Hipoglikemia)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" value="Napas cepat / terengah-engah" class="med-checkbox danger-checkbox danger-item">
+                                <span>Napas cepat / terengah-engah</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" value="Luka / borok tidak kunjung sembuh" class="med-checkbox danger-checkbox danger-item">
+                                <span>Luka / borok tidak kunjung sembuh</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 5. Catatan Tambahan & Lampiran Media -->
+                    <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
+                        <label for="log-notes" class="block font-extrabold text-xs sm:text-sm text-medNavy">
+                            5. Catatan Owner & Lampiran Foto Kondisi Klinis
+                        </label>
+                        <textarea id="log-notes" rows="2" placeholder="Tuliskan keluhan atau perkembangan kucing hari ini..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy"></textarea>
+                        
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <label class="inline-flex items-center gap-2 text-xs font-bold text-medNavy bg-medBlueLight hover:bg-blue-100 border border-blue-200 px-3.5 py-2 rounded-xl cursor-pointer transition">
+                                <i data-lucide="camera" class="w-4 h-4 text-blue-700"></i>
+                                <span>Lampirkan Foto Kondisi (Opsional)</span>
+                                <input type="file" id="log-media" accept="image/*" onchange="handleMediaUpload(event)" class="hidden">
+                            </label>
+                            <span id="media-status-text" class="text-[11px] text-slate-500 font-medium">Belum ada foto dilampirkan</span>
+                        </div>
+                        <div id="media-preview-box" class="hidden pt-2"></div>
+                    </div>
+
+                    <!-- Tombol Simpan -->
+                    <div class="pt-1 flex items-center justify-end gap-3">
+                        <button type="submit" id="btn-save-log" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-extrabold text-sm px-7 py-3.5 rounded-2xl shadow-lg hover:shadow-xl transition active:scale-[0.98]">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            <span>Simpan & Kirim Laporan ke Dokter</span>
                         </button>
-                        <button type="button" onclick="logoutPatient()" class="text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 px-3 py-2 rounded-lg flex items-center gap-1.5 transition">
-                            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-                            <span>Keluar</span>
-                        </button>
                     </div>
-                </div>
-
-                <div class="p-4 sm:p-6 space-y-5">
-                    <!-- KOTAK INFORMASI IDENTITAS PASIEN -->
-                    <div class="border-2 border-slate-400 rounded-2xl p-3.5 sm:p-4 bg-white space-y-2.5">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5 text-xs sm:text-sm">
-                            <div class="space-y-2.5">
-                                <div class="flex items-center gap-1.5">
-                                    <label for="id-nama-pasien" class="font-semibold text-slate-700 shrink-0">Nama pasien :</label>
-                                    <input type="text" id="id-nama-pasien" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <label for="id-nama-owner" class="font-semibold text-slate-700 shrink-0">Nama owner :</label>
-                                    <input type="text" id="id-nama-owner" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <label for="id-jenis-obat" class="font-semibold text-slate-700 shrink-0">Jenis & dosis obat / insulin :</label>
-                                    <input type="text" id="id-jenis-obat" oninput="savePatientTherapyFields()" class="underline-input w-full font-extrabold text-medNavy" placeholder="cth: Insulin Lantus 2 U">
-                                </div>
-                            </div>
-
-                            <div class="space-y-2.5">
-                                <div class="flex items-center gap-1.5">
-                                    <label for="id-minggu-ke" class="font-semibold text-slate-700 shrink-0">Minggu ke- :</label>
-                                    <input type="text" id="id-minggu-ke" oninput="savePatientTherapyFields()" class="underline-input w-full font-extrabold text-medNavy" placeholder="cth: 1">
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <label for="id-usia" class="font-semibold text-slate-700 shrink-0">Usia :</label>
-                                    <input type="text" id="id-usia" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <label for="id-jadwal-kontrol" class="font-semibold text-slate-700 shrink-0">Jadwal kontrol :</label>
-                                    <input type="text" id="id-jadwal-kontrol" oninput="savePatientTherapyFields()" class="underline-input w-full font-extrabold text-medNavy" placeholder="cth: 01 Des 2026">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- STATE A: MENUNGGU KEESOKAN HARINYA -->
-                    <div id="state-waiting-tomorrow" class="hidden border-2 border-blue-300 bg-blue-50/70 rounded-2xl p-6 text-center space-y-3 animate-fade-in">
-                        <div class="w-14 h-14 rounded-2xl bg-white border border-blue-200 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
-                            <i data-lucide="calendar-clock" class="w-7 h-7"></i>
-                        </div>
-                        <span class="inline-block text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-medNavy px-3 py-1 rounded-full">
-                            Akun Terdaftar • Hari Diagnosa Awal
-                        </span>
-                        <h2 class="font-display font-extrabold text-lg sm:text-xl text-medNavy">
-                            Formulir Pemantauan Mulai Aktif Besok
-                        </h2>
-                        <p class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-                            Sesuai alur terapi setelah diagnosa dan resep insulin dari dokter, formulir harian akan otomatis terbuka mulai keesokan harinya (<strong id="waiting-start-date">Besok</strong>).
-                        </p>
-                    </div>
-
-                    <!-- STATE B: KONTROL SEMINGGU SELESAI / DIHENTIKAN DOKTER -->
-                    <div id="state-paused-control" class="hidden border-2 border-emerald-400 bg-emerald-50/70 rounded-2xl p-7 text-center space-y-3.5 animate-fade-in">
-                        <div class="w-16 h-16 rounded-full bg-white border-2 border-emerald-400 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
-                            <i data-lucide="calendar-check-2" class="w-8 h-8"></i>
-                        </div>
-                        <span id="paused-badge-label" class="inline-block text-[11px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">
-                            Hari Kontrol Klinik • Sistem Berhenti Sementara
-                        </span>
-                        <h2 id="paused-main-title" class="font-display font-extrabold text-xl sm:text-2xl text-medNavy">
-                            Kontrol Seminggu Selesai
-                        </h2>
-                        <p id="paused-description" class="text-xs sm:text-sm text-slate-700 max-w-md mx-auto leading-relaxed">
-                            Pemantauan 7 hari telah selesai dan waktunya hari ini kontrol ke dokter hewan. Formulir harian otomatis berhenti sementara menunggu keputusan dokter setelah pemeriksaan.
-                        </p>
-                        <div class="pt-2 flex flex-wrap items-center justify-center gap-2.5">
-                            <button type="button" onclick="viewPastRecordsWhilePaused()" class="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-medNavy border border-slate-300 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition">
-                                <i data-lucide="history" class="w-4 h-4"></i>
-                                <span>Lihat Riwayat Hari 1–7</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- TABEL / FORMULIR HARIAN (HARI 1 S/D HARI 7) -->
-                    <form id="daily-form" onsubmit="saveCurrentDay(event)">
-                        <div class="border-2 border-medNavy rounded-xl overflow-hidden bg-white">
-                            <div class="bg-medHeaderGray/90 border-b-2 border-medNavy px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
-                                <div class="flex items-center gap-2">
-                                    <span id="display-day-label" class="font-display font-extrabold text-medNavy text-base sm:text-lg">
-                                        Hari 1 (dari 7)
-                                    </span>
-                                    <span id="status-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                        Form Kosong
-                                    </span>
-                                </div>
-                                <div class="text-right">
-                                    <span id="display-date" class="font-bold text-xs sm:text-sm text-slate-800 underline decoration-slate-500 underline-offset-4">
-                                        -
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="divide-y divide-slate-300 text-xs sm:text-sm">
-                                <!-- Baris 1 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <span class="font-semibold text-slate-800 min-w-[150px]">Pagi : Makan</span>
-                                    <div class="flex flex-wrap items-center gap-4 sm:gap-6">
-                                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                            <input type="checkbox" id="pagi-habis" onchange="toggleMakanOption('pagi', 'habis')" class="med-checkbox">
-                                            <span class="font-medium">Habis</span>
-                                        </label>
-                                        <div class="inline-flex items-center gap-2">
-                                            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                                <input type="checkbox" id="pagi-sisa-check" onchange="toggleMakanOption('pagi', 'sisa')" class="med-checkbox">
-                                                <span class="font-medium">Sisa</span>
-                                            </label>
-                                            <input type="text" id="pagi-sisa-text" placeholder="ket. sisa" class="underline-input w-20 sm:w-24 text-xs">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Baris 2 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <span class="font-semibold text-slate-800">Pagi : Jam & dosis obat / insulin</span>
-                                    <div class="flex flex-wrap items-center gap-4">
-                                        <div class="inline-flex items-center gap-1.5">
-                                            <label for="pagi-jam" class="font-medium text-slate-700">Jam :</label>
-                                            <input type="time" id="pagi-jam" class="underline-input font-semibold text-medNavy">
-                                        </div>
-                                        <div class="inline-flex items-center gap-1.5">
-                                            <label for="pagi-u" class="font-medium text-slate-700">U :</label>
-                                            <input type="text" id="pagi-u" placeholder="2" class="underline-input w-14 text-center font-semibold text-medNavy">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Baris 3 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <span class="font-semibold text-slate-800 min-w-[150px]">Malam : Makan</span>
-                                    <div class="flex flex-wrap items-center gap-4 sm:gap-6">
-                                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                            <input type="checkbox" id="malam-habis" onchange="toggleMakanOption('malam', 'habis')" class="med-checkbox">
-                                            <span class="font-medium">Habis</span>
-                                        </label>
-                                        <div class="inline-flex items-center gap-2">
-                                            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                                <input type="checkbox" id="malam-sisa-check" onchange="toggleMakanOption('malam', 'sisa')" class="med-checkbox">
-                                                <span class="font-medium">Sisa</span>
-                                            </label>
-                                            <input type="text" id="malam-sisa-text" placeholder="ket. sisa" class="underline-input w-20 sm:w-24 text-xs">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Baris 4 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <span class="font-semibold text-slate-800">Malam : Jam & dosis obat / insulin</span>
-                                    <div class="flex flex-wrap items-center gap-4">
-                                        <div class="inline-flex items-center gap-1.5">
-                                            <label for="malam-jam" class="font-medium text-slate-700">Jam :</label>
-                                            <input type="time" id="malam-jam" class="underline-input font-semibold text-medNavy">
-                                        </div>
-                                        <div class="inline-flex items-center gap-1.5">
-                                            <label for="malam-u" class="font-medium text-slate-700">U :</label>
-                                            <input type="text" id="malam-u" placeholder="2" class="underline-input w-14 text-center font-semibold text-medNavy">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Baris 5 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <label for="pantauan-minum" class="font-semibold text-slate-800">Total air minum (24 jam)</label>
-                                    <div class="inline-flex items-center gap-1.5">
-                                        <input type="number" id="pantauan-minum" placeholder="0" class="underline-input w-24 text-center font-semibold text-medNavy">
-                                        <span class="font-medium text-slate-700">ml</span>
-                                    </div>
-                                </div>
-
-                                <!-- Baris 6 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <label for="pantauan-pipis" class="font-semibold text-slate-800">Frekuensi pipis</label>
-                                    <div class="inline-flex items-center gap-1.5">
-                                        <input type="number" id="pantauan-pipis" placeholder="0" class="underline-input w-20 text-center font-semibold text-medNavy">
-                                        <span class="font-medium text-slate-700">x kali gumpalan</span>
-                                    </div>
-                                </div>
-
-                                <!-- Baris 7 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <span class="font-semibold text-slate-800">Kondisi BAB</span>
-                                    <div class="flex flex-wrap items-center gap-4 sm:gap-5">
-                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                            <input type="checkbox" id="bab-normal" onchange="toggleGroup('bab', 'normal')" class="med-checkbox">
-                                            <span>Normal</span>
-                                        </label>
-                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                            <input type="checkbox" id="bab-lembek" onchange="toggleGroup('bab', 'lembek')" class="med-checkbox">
-                                            <span>Lembek</span>
-                                        </label>
-                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                            <input type="checkbox" id="bab-diare" onchange="toggleGroup('bab', 'diare')" class="med-checkbox">
-                                            <span>Diare</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Baris 8 -->
-                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
-                                    <span class="font-semibold text-slate-800">Tingkat aktivitas</span>
-                                    <div class="flex flex-wrap items-center gap-4 sm:gap-5">
-                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                            <input type="checkbox" id="aktivitas-aktif" onchange="toggleGroup('aktivitas', 'aktif')" class="med-checkbox">
-                                            <span>Aktif</span>
-                                        </label>
-                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                            <input type="checkbox" id="aktivitas-grooming" onchange="toggleGroup('aktivitas', 'grooming')" class="med-checkbox">
-                                            <span>Grooming</span>
-                                        </label>
-                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                                            <input type="checkbox" id="aktivitas-lesu" onchange="toggleGroup('aktivitas', 'lesu')" class="med-checkbox">
-                                            <span>Lesu</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- TANDA BAHAYA & CATATAN + FOTO/VIDEO -->
-                        <div class="mt-4 space-y-3.5">
-                            <div class="bg-dangerBg border-2 border-dangerBorder rounded-xl p-3.5">
-                                <div class="flex items-center gap-1.5 text-dangerText font-extrabold text-xs sm:text-sm mb-2">
-                                    <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                                    <span>[!] TANDA BAHAYA (Centang jika muncul):</span>
-                                </div>
-                                <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:text-sm font-medium text-red-950">
-                                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                        <input type="checkbox" id="bahaya-tolak" class="med-checkbox danger-checkbox">
-                                        <span>Tolak makan</span>
-                                    </label>
-                                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                        <input type="checkbox" id="bahaya-muntah" class="med-checkbox danger-checkbox">
-                                        <span>Muntah</span>
-                                    </label>
-                                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                                        <input type="checkbox" id="bahaya-lemas" class="med-checkbox danger-checkbox">
-                                        <span>Lemas/Sempoyongan</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="bg-slate-50/80 border border-slate-300 rounded-xl p-3.5 space-y-2.5">
-                                <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <label for="catatan-harian" class="font-bold text-medNavy text-xs sm:text-sm">
-                                        Catatan :
-                                    </label>
-                                    <label for="catatan-media-input" class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold text-medNavy bg-white hover:bg-blue-50 border border-medNavy/30 px-3 py-1.5 rounded-lg shadow-2xs transition active:scale-95">
-                                        <i data-lucide="camera" class="w-3.5 h-3.5 text-blue-600"></i>
-                                        <span>+ Tambah Foto / Video</span>
-                                        <input type="file" id="catatan-media-input" accept="image/*,video/*" class="hidden" onchange="handleMediaUpload(event)">
-                                    </label>
-                                </div>
-
-                                <textarea id="catatan-harian" rows="2" placeholder="Tulis kondisi khusus (misal: muntah darah, luka/borok, atau reaksi setelah suntik)..." class="w-full rounded-xl border border-slate-300 p-2.5 text-xs sm:text-sm focus:outline-none focus:border-medNavy focus:ring-2 focus:ring-blue-100 transition bg-white"></textarea>
-
-                                <div id="media-preview-wrapper" class="hidden pt-1">
-                                    <div class="relative inline-block rounded-xl overflow-hidden border-2 border-slate-300 bg-white max-w-full">
-                                        <img id="media-preview-img" class="hidden max-h-48 w-auto object-contain" alt="Lampiran Kondisi Kucing">
-                                        <video id="media-preview-video" class="hidden max-h-48 w-auto" controls></video>
-                                        <div class="flex items-center justify-between gap-3 bg-slate-100 px-3 py-1.5 text-[11px] text-slate-600 border-t border-slate-200">
-                                            <span id="media-file-name" class="truncate max-w-[180px] font-medium">lampiran.jpg</span>
-                                            <button type="button" onclick="removeMediaAttachment()" class="text-red-600 font-bold hover:underline flex items-center gap-1">
-                                                <i data-lucide="trash-2" class="w-3 h-3"></i> Hapus
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="pt-1">
-                                <button type="submit" class="w-full bg-medNavy hover:bg-blue-900 text-white font-bold py-3.5 px-5 rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 active:scale-[0.99]">
-                                    <i data-lucide="save" class="w-5 h-5"></i>
-                                    <span id="btn-save-text">Simpan Laporan Hari Ini</span>
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+                </form>
             </div>
         </section>
 
@@ -774,1682 +664,1203 @@
         <!-- ========================================================= -->
         <!-- HALAMAN 4: PORTAL DOKTER HEWAN (TERISOLASI PER DOKTER)    -->
         <!-- ========================================================= -->
-        <section id="view-vet" class="hidden w-full max-w-4xl animate-fade-in pb-12">
-            
-            <!-- Top Navigation Bar Dokter -->
-            <div class="bg-medNavy text-white rounded-2xl p-4 mb-5 shadow-md flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
-                        <i data-lucide="stethoscope" class="w-5 h-5 text-blue-200"></i>
+        <section id="view-vet" class="hidden w-full max-w-4xl animate-fade-in my-2">
+            <!-- Header Portal Dokter -->
+            <div class="bg-medNavy text-white rounded-3xl p-5 sm:p-6 shadow-xl mb-5 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+                        <i data-lucide="stethoscope" class="w-6 h-6 text-blue-200"></i>
                     </div>
                     <div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <h1 class="font-display font-extrabold text-base sm:text-lg tracking-wide uppercase">
+                            <h2 class="font-display font-extrabold text-lg sm:text-xl tracking-wide uppercase">
                                 PORTAL DOKTER HEWAN
-                            </h1>
-                            <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                                <i data-lucide="lock" class="w-2.5 h-2.5"></i> PRIVASI PASIEN TERISOLASI
+                            </h2>
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 px-2.5 py-0.5 rounded-full">
+                                <i data-lucide="lock" class="w-3 h-3"></i>
+                                PRIVASI PASIEN TERISOLASI
                             </span>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2 mt-1 text-xs">
-                            <span class="text-blue-200">Dokter Login:</span>
-                            <strong id="logged-vet-display-name" class="text-white bg-white/15 px-2.5 py-0.5 rounded-md">Dokter</strong>
-                            <span id="logged-vet-clinic-info" class="text-blue-200 text-[11px]"></span>
-                        </div>
+                        <p class="text-xs text-blue-200 mt-1">
+                            Dokter Login: <span id="vet-logged-name" class="font-bold text-white bg-white/15 px-2.5 py-0.5 rounded-lg">-</span>
+                            <span id="vet-logged-clinic" class="ml-1 text-blue-200"></span>
+                        </p>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button type="button" onclick="openCloudConfigModal()" id="vet-cloud-btn" class="text-xs font-bold bg-blue-500/20 text-blue-100 hover:bg-blue-500/30 border border-blue-300/30 px-3 py-2 rounded-xl transition flex items-center gap-1.5">
-                        <i data-lucide="cloud" class="w-3.5 h-3.5"></i>
-                        <span id="vet-cloud-label">Cloud</span>
+                    <button type="button" onclick="manualRefreshCloud()" id="vet-cloud-badge" class="inline-flex items-center gap-1.5 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/25 px-3.5 py-2 rounded-xl transition" title="Klik untuk sinkronisasi ulang">
+                        <i data-lucide="cloud" class="w-4 h-4 text-emerald-300"></i>
+                        <span id="vet-cloud-text">Cloud Aktif</span>
                     </button>
-                    <button type="button" onclick="logoutVet()" class="text-xs font-bold bg-white text-medNavy hover:bg-red-50 hover:text-red-700 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+                    <button type="button" onclick="logoutVet()" class="inline-flex items-center gap-1.5 text-xs font-bold bg-white text-medNavy hover:bg-blue-50 px-3.5 py-2 rounded-xl shadow-xs transition">
                         <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
                         <span>Keluar Dokter</span>
                     </button>
                 </div>
             </div>
 
-            <!-- SUB-VIEW A: DAFTAR PASIEN KUCING -->
-            <div id="vet-list-panel" class="space-y-4">
-                <div class="grid grid-cols-3 gap-3">
-                    <div class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-xs">
-                        <div class="text-[11px] font-semibold text-slate-500">Pasien Saya</div>
-                        <div id="vet-stat-total" class="font-display font-extrabold text-xl sm:text-2xl text-medNavy mt-0.5">0</div>
-                    </div>
-                    <div class="bg-red-50/70 rounded-2xl p-3.5 border border-red-200 shadow-xs">
-                        <div class="text-[11px] font-semibold text-red-700">Perlu Perhatian</div>
-                        <div id="vet-stat-danger" class="font-display font-extrabold text-xl sm:text-2xl text-red-600 mt-0.5">0</div>
-                    </div>
-                    <div class="bg-emerald-50/70 rounded-2xl p-3.5 border border-emerald-200 shadow-xs">
-                        <div class="text-[11px] font-semibold text-emerald-700">Waktunya Kontrol / Stop</div>
-                        <div id="vet-stat-completed" class="font-display font-extrabold text-xl sm:text-2xl text-emerald-600 mt-0.5">0</div>
-                    </div>
+            <!-- Statistik Ringkas Dokter -->
+            <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-5">
+                <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
+                    <span class="block text-xs font-bold text-slate-500">Pasien Saya</span>
+                    <span id="stat-total-patients" class="font-display font-extrabold text-2xl sm:text-3xl text-medNavy mt-1 block">0</span>
                 </div>
-
-                <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3">
-                    <div class="relative">
-                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                        <input type="text" id="vet-search-input" oninput="renderVetPatientList()" placeholder="Cari cepat pasien Anda berdasarkan Nama Kucing atau Nama Owner..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-medNavy focus:ring-2 focus:ring-blue-100">
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" onclick="setVetFilter('all')" id="filter-btn-all" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-medNavy text-white transition">
-                            Semua Pasien
-                        </button>
-                        <button type="button" onclick="setVetFilter('danger')" id="filter-btn-danger" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700 transition">
-                            ⚠️ Ada Tanda Bahaya
-                        </button>
-                        <button type="button" onclick="setVetFilter('completed')" id="filter-btn-completed" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition">
-                            ⏸️ Hari Kontrol / Stop Pantau
-                        </button>
-                    </div>
+                <div class="bg-red-50/70 rounded-2xl p-4 border border-red-200 shadow-xs">
+                    <span class="block text-xs font-bold text-red-700">Perlu Perhatian</span>
+                    <span id="stat-danger-patients" class="font-display font-extrabold text-2xl sm:text-3xl text-red-600 mt-1 block">0</span>
                 </div>
-
-                <div id="vet-patient-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div class="bg-emerald-50/70 rounded-2xl p-4 border border-emerald-200 shadow-xs">
+                    <span class="block text-xs font-bold text-emerald-700">Waktunya Kontrol / Stop</span>
+                    <span id="stat-control-patients" class="font-display font-extrabold text-2xl sm:text-3xl text-emerald-600 mt-1 block">0</span>
+                </div>
             </div>
 
-            <!-- SUB-VIEW B: DETAIL PROGRES, KENDALI MULAI/STOP & KOMENTAR DOKTER -->
-            <div id="vet-detail-panel" class="hidden space-y-5 animate-fade-in">
-                <div class="flex items-center justify-between">
-                    <button type="button" onclick="closeVetDetail()" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-medNavy bg-white hover:bg-blue-50 border border-slate-300 px-3.5 py-2 rounded-xl shadow-xs transition">
-                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                        <span>Kembali ke Daftar Pasien</span>
+            <!-- Filter & Pencarian Pasien -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs mb-5 space-y-3">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="vet-search-input" oninput="renderVetPatientList()" placeholder="Cari cepat pasien Anda berdasarkan Nama Kucing atau Nama Owner..." class="w-full rounded-xl border border-slate-300 pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" id="vet-filter-all" onclick="setVetFilter('all')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-medNavy text-white transition">
+                        Semua Pasien
                     </button>
-                    <span id="detail-monitoring-pill" class="text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        ● Pemantauan Aktif
-                    </span>
+                    <button type="button" id="vet-filter-danger" onclick="setVetFilter('danger')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-red-50 transition">
+                        ⚠️ Ada Tanda Bahaya
+                    </button>
+                    <button type="button" id="vet-filter-control" onclick="setVetFilter('control')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-emerald-50 transition">
+                        ⏸️ Hari Kontrol / Stop Pantau
+                    </button>
+                </div>
+            </div>
+
+            <!-- Daftar Kartu Pasien -->
+            <div id="vet-patient-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+            <!-- Panel Detail Evaluasi Pasien Terpilih -->
+            <div id="vet-detail-panel" class="hidden mt-6 bg-white rounded-3xl shadow-xl border-2 border-medNavy overflow-hidden animate-fade-in">
+                <div class="bg-medBlueLight border-b-2 border-medNavy px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 id="vet-detail-title" class="font-display font-extrabold text-lg text-medNavy">-</h3>
+                            <span id="vet-detail-status-badge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">-</span>
+                        </div>
+                        <p id="vet-detail-subtitle" class="text-xs text-slate-600 font-medium mt-0.5">-</p>
+                    </div>
+                    <button type="button" onclick="closeVetDetail()" class="text-xs font-bold text-slate-600 hover:text-medNavy bg-white px-3 py-1.5 rounded-xl border border-slate-300">
+                        Tutup Detail
+                    </button>
                 </div>
 
-                <!-- PANEL KENDALI SISTEM DOKTER -->
-                <div class="bg-white rounded-2xl border-2 border-medNavy p-4 sm:p-5 shadow-sm space-y-4">
-                    <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-200">
+                <div class="p-5 sm:p-6 space-y-6">
+                    <!-- Otoritas Kendali Dokter -->
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <div class="flex items-center gap-2">
-                                <h2 id="detail-patient-name" class="font-display font-extrabold text-xl text-medNavy">-</h2>
-                                <span id="detail-danger-pill" class="hidden text-[11px] font-extrabold bg-red-100 text-red-700 border border-red-300 px-2.5 py-0.5 rounded-full">
-                                    ⚠️ Ada Tanda Bahaya
-                                </span>
-                            </div>
-                            <p id="detail-owner-info" class="text-xs sm:text-sm text-slate-600 mt-0.5">-</p>
-                            <p id="detail-doctor-assigned" class="text-xs font-bold text-blue-700 mt-1">-</p>
+                            <span class="block text-xs font-extrabold text-medNavy uppercase">Otoritas Kendali Siklus Pemantauan</span>
+                            <span class="text-xs text-slate-500">Dokter memegang kendali penuh untuk memulai siklus 7 hari baru atau menghentikan pantauan.</span>
                         </div>
-                        <div class="bg-medBlueLight border border-blue-200 rounded-xl px-3.5 py-2 text-right">
-                            <div class="text-[10px] font-bold uppercase text-slate-500">Regimen Terapi</div>
-                            <div id="detail-med-info" class="font-bold text-xs sm:text-sm text-medNavy">-</div>
-                            <div id="detail-control-info" class="text-[11px] text-slate-600">-</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-                        <div class="space-y-0.5">
-                            <div class="text-xs font-extrabold text-medNavy uppercase tracking-wide flex items-center gap-1.5">
-                                <i data-lucide="sliders" class="w-3.5 h-3.5 text-blue-600"></i>
-                                <span>Kendali Sistem Pemantauan (Otoritas Dokter)</span>
-                            </div>
-                            <p id="detail-control-desc" class="text-[11px] text-slate-600">
-                                Aktifkan siklus 7 hari berikutnya jika kucing masih perlu kontrol, atau hentikan pemantauan jika sudah stabil.
-                            </p>
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-2">
-                            <button type="button" onclick="doctorStartMonitoring()" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition active:scale-95">
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="vetControlAction('start')" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition">
                                 <i data-lucide="play" class="w-3.5 h-3.5"></i>
                                 <span>Mulai Pantau</span>
                             </button>
-                            <button type="button" onclick="doctorStopMonitoring()" class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition active:scale-95">
-                                <i data-lucide="square" class="w-3.5 h-3.5"></i>
+                            <button type="button" onclick="vetControlAction('stop')" class="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition">
+                                <i data-lucide="pause" class="w-3.5 h-3.5"></i>
                                 <span>Stop Pantau</span>
                             </button>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-medNavy flex items-center gap-1.5">
-                                    <i data-lucide="droplets" class="w-3.5 h-3.5 text-blue-500"></i>
-                                    Tren Air Minum (ml / 24 jam)
-                                </span>
-                                <span class="text-[10px] text-slate-400">H1 – H7</span>
-                            </div>
-                            <div id="chart-minum" class="h-28 flex items-end justify-between gap-1.5 pt-4 px-1"></div>
-                        </div>
-
-                        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-bold text-medNavy flex items-center gap-1.5">
-                                    <i data-lucide="activity" class="w-3.5 h-3.5 text-teal-600"></i>
-                                    Tren Frekuensi Pipis (x / hari)
-                                </span>
-                                <span class="text-[10px] text-slate-400">H1 – H7</span>
-                            </div>
-                            <div id="chart-pipis" class="h-28 flex items-end justify-between gap-1.5 pt-4 px-1"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PANEL EVALUASI & KOMENTAR DOKTER -->
-                <div class="bg-white rounded-2xl border-2 border-blue-500 p-4 sm:p-5 shadow-sm space-y-4">
-                    <div class="flex items-center justify-between">
-                        <h3 class="font-display font-extrabold text-base text-medNavy flex items-center gap-2">
-                            <i data-lucide="message-square-plus" class="w-5 h-5 text-blue-600"></i>
-                            <span>Evaluasi & Komentar Dokter Hewan</span>
-                        </h3>
-                        <span class="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
-                            Langsung tampil di HP Pemilik
-                        </span>
+                    <!-- Grafik Tren Air Minum & Pipis (H1-H7) -->
+                    <div class="border border-slate-200 rounded-2xl p-4">
+                        <h4 class="font-extrabold text-xs sm:text-sm text-medNavy mb-3 flex items-center gap-2">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4 text-blue-700"></i>
+                            <span>Grafik Tren Konsumsi Air Minum & Frekuensi Pipis (H1–H7)</span>
+                        </h4>
+                        <div id="vet-trend-chart" class="grid grid-cols-7 gap-2 items-end h-36 pt-4 px-2 bg-slate-50/60 rounded-xl border border-slate-100"></div>
                     </div>
 
-                    <form onsubmit="submitVetEvaluation(event)" class="space-y-3">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Pilih Status Arahan Medis :</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="vet-status" value="Lanjutkan Terapi" checked class="peer sr-only">
-                                    <div class="p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 text-xs font-bold text-slate-700 peer-checked:text-emerald-800 text-center transition">
-                                        ✅ Lanjutkan Terapi
-                                    </div>
-                                </label>
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="vet-status" value="Sesuaikan Dosis" class="peer sr-only">
-                                    <div class="p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 text-xs font-bold text-slate-700 peer-checked:text-amber-800 text-center transition">
-                                        ⚖️ Sesuaikan Dosis
-                                    </div>
-                                </label>
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="vet-status" value="Segera Bawa ke Klinik" class="peer sr-only">
-                                    <div class="p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-red-500 peer-checked:bg-red-50 text-xs font-bold text-slate-700 peer-checked:text-red-800 text-center transition">
-                                        🚨 Segera Bawa ke Klinik
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
+                    <!-- Rekap Laporan Harian H1 - H7 -->
+                    <div>
+                        <h4 class="font-extrabold text-xs sm:text-sm text-medNavy mb-3 flex items-center gap-2">
+                            <i data-lucide="clipboard-list" class="w-4 h-4 text-blue-700"></i>
+                            <span>Rekap Laporan Harian dari Pemilik Kucing</span>
+                        </h4>
+                        <div id="vet-daily-logs-list" class="space-y-3"></div>
+                    </div>
 
-                        <div>
-                            <label for="vet-comment-input" class="block text-xs font-bold text-slate-700 mb-1">
-                                Catatan / Instruksi untuk Pemilik Kucing :
-                            </label>
-                            <textarea id="vet-comment-input" rows="3" required placeholder="Contoh: Nafsu makan dan volume minum membaik. Pertahankan dosis insulin 2 U pagi & malam, tetap pantau muntah/lemas." class="w-full rounded-xl border-2 border-slate-300 p-3 text-xs sm:text-sm focus:outline-none focus:border-medNavy transition"></textarea>
+                    <!-- Form Catatan Evaluasi Dokter -->
+                    <form onsubmit="saveVetEvaluation(event)" class="bg-medBlueLight/60 border-2 border-blue-200 rounded-2xl p-4 space-y-3">
+                        <label for="vet-eval-input" class="block font-extrabold text-xs sm:text-sm text-medNavy">
+                            Instruksi / Evaluasi Medis Dokter (Langsung Tampil di HP Pemilik):
+                        </label>
+                        <textarea id="vet-eval-input" rows="3" placeholder="Tuliskan evaluasi dosis insulin, jadwal kontrol berikutnya, atau penanganan gejala..." class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy"></textarea>
+                        <div class="flex justify-end">
+                            <button type="submit" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-xl shadow-md transition">
+                                <i data-lucide="send" class="w-4 h-4"></i>
+                                <span>Kirim Evaluasi ke Pemilik</span>
+                            </button>
                         </div>
-
-                        <button type="submit" class="w-full sm:w-auto bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm py-3 px-6 rounded-xl shadow-sm transition flex items-center justify-center gap-2">
-                            <i data-lucide="send" class="w-4 h-4"></i>
-                            <span>Kirim Evaluasi sebagai <span id="btn-vet-sender-name">Dokter</span></span>
-                        </button>
                     </form>
-
-                    <div class="pt-3 border-t border-slate-200">
-                        <div class="text-xs font-bold text-slate-500 mb-2">Riwayat Komentar Evaluasi:</div>
-                        <div id="vet-comment-history" class="space-y-2"></div>
-                    </div>
-                </div>
-
-                <!-- REKAP LENGKAP HARIAN -->
-                <div class="bg-white rounded-2xl border border-slate-300 p-4 sm:p-5 shadow-xs space-y-3">
-                    <h3 class="font-display font-extrabold text-base text-medNavy flex items-center gap-2">
-                        <i data-lucide="clipboard-list" class="w-5 h-5 text-medNavy"></i>
-                        <span>Rekap Laporan Harian Pemilik & Lampiran Media (Hari 1 – Hari 7)</span>
-                    </h3>
-                    <div id="vet-daily-recap-list" class="space-y-3"></div>
                 </div>
             </div>
         </section>
 
     </main>
 
+    <!-- Footer -->
+    <footer class="text-center py-4 px-4 text-[11px] text-slate-500 font-medium">
+        CAT DIABETIC CARE &bull; Sistem Pemantauan Terapi Diabetes Kucing &bull; Real-Time Cloud Sync
+    </footer>
+
     <!-- ========================================================= -->
-    <!-- MODAL 1: QR CODE BARCODE TAG KALUNG KUCING                -->
+    <!-- MODAL 1: QR CODE KALUNG KUCING                            -->
     <!-- ========================================================= -->
     <div id="modal-qr" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-center space-y-4">
-            <div class="flex justify-between items-center">
-                <span class="text-xs font-bold uppercase tracking-wider text-medNavy bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
-                    <i data-lucide="tag" class="w-3.5 h-3.5 text-blue-600"></i> Tag Kalung Kucing
-                </span>
-                <button type="button" onclick="closeModal('modal-qr')" class="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 border-2 border-medNavy shadow-2xl text-center space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between">
+                <h3 class="font-display font-extrabold text-base text-medNavy">QR Code Tag Kalung Kucing</h3>
+                <button type="button" onclick="closeQrModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                    <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
-
-            <div>
-                <h3 class="font-display font-extrabold text-lg text-medNavy">QR Code Kartu Pemantauan</h3>
-                <p id="qr-tag-caption" class="text-xs text-slate-500 mt-1">
-                    Cetak / ukir QR Code ini pada tag kalung kucing agar keluarga di rumah dapat langsung scan dari HP.
-                </p>
-            </div>
-
-            <div class="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2">
-                <div id="qrcode-canvas" class="bg-white p-2 rounded-xl shadow-xs"></div>
-                <span id="qr-patient-label" class="text-[11px] font-extrabold text-medNavy uppercase tracking-wide">
-                    CAT DIABETIC CARE
-                </span>
-            </div>
-
-            <div class="flex flex-col gap-2">
-                <button type="button" onclick="downloadQrImage()" class="w-full bg-medNavy hover:bg-blue-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition">
+            <p id="qr-subtitle" class="text-xs text-slate-600">
+                Pindai QR Code ini dengan kamera HP untuk langsung membuka kartu pemantauan kucing.
+            </p>
+            <div id="qrcode-canvas" class="mx-auto w-52 h-52 bg-white p-3 rounded-2xl border-2 border-slate-200 flex items-center justify-center shadow-inner"></div>
+            <div class="flex flex-col gap-2 pt-1">
+                <button type="button" onclick="downloadQrImage()" class="w-full inline-flex items-center justify-center gap-2 bg-medNavy hover:bg-blue-900 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition">
                     <i data-lucide="download" class="w-4 h-4"></i>
                     <span>Simpan Gambar Barcode (Untuk Cetak Kalung)</span>
                 </button>
-                <button type="button" onclick="copyPatientLink()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition">
-                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                    <span>Salin Link Langsung Pasien</span>
+                <button type="button" onclick="copyShareLink()" class="w-full inline-flex items-center justify-center gap-2 bg-medBlueLight hover:bg-blue-100 text-medNavy text-xs font-bold py-2.5 px-4 rounded-xl border border-blue-200 transition">
+                    <i data-lucide="link" class="w-3.5 h-3.5"></i>
+                    <span>Salin Link Akses</span>
                 </button>
             </div>
         </div>
     </div>
 
     <!-- ========================================================= -->
-    <!-- MODAL 2: KONEKSI CLOUD REAL-TIME (FIREBASE)               -->
+    <!-- MODAL 2: KONFIGURASI CLOUD FIREBASE                       -->
     <!-- ========================================================= -->
     <div id="modal-cloud" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-left space-y-4">
-            <div class="flex justify-between items-center">
-                <span class="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
-                    <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Sinkronisasi Antar-HP
-                </span>
-                <button type="button" onclick="closeModal('modal-cloud')" class="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 border-2 border-medNavy shadow-2xl space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between">
+                <h3 class="font-display font-extrabold text-base text-medNavy">Koneksi Firebase Cloud</h3>
+                <button type="button" onclick="closeCloudConfigModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                    <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
-
+            <p class="text-xs text-slate-600 leading-relaxed">
+                Aplikasi ini otomatis terhubung ke Firebase Realtime Database agar laporan HP pemilik langsung tampil di laptop dokter secara real-time.
+            </p>
             <div>
-                <h3 class="font-display font-extrabold text-lg text-medNavy">Hubungkan Database Cloud (Firebase)</h3>
-                <p class="text-xs text-slate-600 mt-1 leading-relaxed">
-                    Agar data pasien tersimpan permanen dan langsung muncul di HP Ibu, HP Bapak, serta Portal Dokter di klinik secara <strong>real-time</strong>, tempelkan URL <strong>Firebase Realtime Database</strong> Anda di bawah ini:
-                </p>
+                <label class="block text-xs font-bold text-medNavy mb-1">Firebase Realtime Database URL:</label>
+                <input type="url" id="cloud-url-input" placeholder="https://...firebasedatabase.app" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs font-semibold focus:outline-none focus:border-medNavy">
             </div>
-
-            <form onsubmit="saveCloudConfig(event)" class="space-y-3">
-                <div>
-                    <label for="firebase-db-url" class="block text-xs font-bold text-medNavy mb-1">
-                        Firebase Realtime Database URL :
-                    </label>
-                    <input type="url" id="firebase-db-url" required placeholder="https://cat-diabetic-care-default-rtdb.asia-southeast1.firebasedatabase.app" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-medNavy">
-                </div>
-
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">
-                    <div class="font-bold text-medNavy">Cara Mendapatkan URL Gratis (2 Menit):</div>
-                    <ol class="list-decimal list-inside space-y-0.5">
-                        <li>Buka <strong>console.firebase.google.com</strong> &rarr; Buat Proyek Baru.</li>
-                        <li>Pilih menu <strong>Build &rarr; Realtime Database &rarr; Create Database</strong>.</li>
-                        <li>Pilih <strong>Start in test mode</strong> &rarr; salin tautan <code>https://...firebasedatabase.app</code>.</li>
-                    </ol>
-                </div>
-
-                <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <button type="button" onclick="disconnectCloud()" class="text-xs font-semibold text-red-600 hover:underline">
-                        Putuskan Cloud
-                    </button>
-                    <button type="submit" class="bg-medNavy hover:bg-blue-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
-                        <i data-lucide="check" class="w-4 h-4"></i>
-                        <span>Simpan & Sinkronkan</span>
-                    </button>
-                </div>
-            </form>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeCloudConfigModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">Tutup</button>
+                <button type="button" onclick="saveCloudConfig()" class="px-5 py-2 rounded-xl text-xs font-bold bg-medNavy text-white hover:bg-blue-900 shadow-xs">Simpan & Sinkronkan</button>
+            </div>
         </div>
     </div>
 
-    <!-- ========================================================= -->
-    <!-- TOAST NOTIFICATION                                        -->
-    <!-- ========================================================= -->
-    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2.5 max-w-[92vw]">
-        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 shrink-0"></i>
-        <span id="toast-message">Data tersimpan!</span>
-    </div>
+    <!-- Toast Notifikasi -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- ========================================================= -->
-    <!-- JAVASCRIPT APPLICATION LOGIC                              -->
-    <!-- ========================================================= -->
     <script>
-        const HARI_INDO = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        const BULAN_INDO = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const STORAGE_KEY = 'cat_diabetic_care_prod_v1';
-        const CLOUD_URL_KEY = 'cat_diabetic_care_firebase_url';
-
-        const DEFAULT_FIREBASE_DB_URL = 'https://cat-diabetic-care-default-rtdb.asia-southeast1.firebasedatabase.app';
+        // =====================================================================
+        // 1. KONFIGURASI DATABASE & SINKRONISASI REAL-TIME FIREBASE
+        // =====================================================================
+        const DEFAULT_FIREBASE_DB_URL = "https://cat-diabetic-care-default-rtdb.asia-southeast1.firebasedatabase.app";
+        const STORAGE_KEY = "cat_diabetic_care_store_v2";
+        const CLOUD_URL_KEY = "cat_diabetic_care_cloud_url";
+        const DB_ROOT_PATH = "cat_diabetic_care_data";
 
         let firebaseDb = null;
         let isCloudConnected = false;
-        let currentUploadedMedia = null;
 
-        let appState = {
-            currentUsername: null,
-            currentDoctorUsername: null,
-            selectedVetUsername: null,
-            vetFilter: 'all',
-            doctors: {},
-            accounts: {}
+        let store = {
+            accounts: {},
+            doctors: {
+                rajanti: {
+                    username: "rajanti",
+                    password: "123",
+                    fullName: "drh. Rajanti Dwitantri",
+                    clinic: "Klinik Hewan Sehat Bandung"
+                },
+                nabila: {
+                    username: "nabila",
+                    password: "123",
+                    fullName: "drh. Nabila Putri",
+                    clinic: "Poli Penyakit Dalam Kucing"
+                }
+            },
+            updatedAt: Date.now()
         };
 
-        // ==========================================
-        // HELPER TANGGAL & WAKTU REAL-TIME
-        // ==========================================
-        function getTodayIso() {
-            const d = new Date();
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
+        let currentPatientUser = null;
+        let currentVetUser = null;
+        let selectedDay = 1;
+        let currentMediaBase64 = "";
+        let vetFilter = "all";
+        let selectedVetPatientUser = null;
+
+        // Toast Helper
+        function showToast(message, type = "success") {
+            const container = document.getElementById("toast-container");
+            const el = document.createElement("div");
+            const colors = type === "error"
+                ? "bg-red-700 text-white border-red-900"
+                : type === "info"
+                ? "bg-medNavy text-white border-blue-950"
+                : "bg-emerald-700 text-white border-emerald-900";
+            el.className = `${colors} border px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-bold flex items-center gap-2 animate-fade-in pointer-events-auto max-w-xs sm:max-w-sm`;
+            el.innerHTML = `<span>${message}</span>`;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = "0";
+                el.style.transition = "opacity 0.3s";
+                setTimeout(() => el.remove(), 300);
+            }, 3500);
         }
 
-        function addDaysIso(isoStr, daysToAdd) {
-            const parts = isoStr.split('-').map(Number);
-            const date = new Date(parts[0], parts[1] - 1, parts[2]);
-            date.setDate(date.getDate() + daysToAdd);
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, '0');
-            const dd = String(date.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        }
-
-        function diffDaysIso(startIso, endIso) {
-            const p1 = startIso.split('-').map(Number);
-            const p2 = endIso.split('-').map(Number);
-            const d1 = new Date(p1[0], p1[1] - 1, p1[2]);
-            const d2 = new Date(p2[0], p2[1] - 1, p2[2]);
-            return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
-        }
-
-        function formatIndoDateFromIso(isoStr) {
-            if (!isoStr) return '-';
-            const parts = isoStr.split('-').map(Number);
-            const d = new Date(parts[0], parts[1] - 1, parts[2]);
-            return `${HARI_INDO[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')} ${BULAN_INDO[d.getMonth()]} ${d.getFullYear()}`;
-        }
-
-        function escapeHtml(str) {
-            if (str === null || str === undefined) return '';
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        // ==========================================
-        // STORAGE & CLOUD FIREBASE SYNC
-        // ==========================================
-        function loadStateFromStorage() {
+        function loadLocalStore() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    appState = {
-                        ...appState,
-                        ...parsed,
-                        doctors: parsed.doctors || {},
-                        accounts: parsed.accounts || {}
-                    };
+                    if (parsed && typeof parsed === "object") {
+                        store.accounts = parsed.accounts || {};
+                        store.doctors = { ...store.doctors, ...(parsed.doctors || {}) };
+                        store.updatedAt = parsed.updatedAt || Date.now();
+                    }
                 }
             } catch (e) {
-                console.warn('Error loading state:', e);
+                console.warn("Gagal membaca localStorage:", e);
             }
         }
 
-        function saveStateToStorage() {
+        function saveLocalStore() {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-                pushDataToCloud();
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
             } catch (e) {
-                console.warn('Storage quota warning:', e);
-                showToast('Catatan tersimpan (ukuran lampiran media terlalu besar untuk memori HP).');
+                console.warn("Gagal menyimpan localStorage:", e);
             }
         }
 
         function getActiveCloudUrl() {
-            return (localStorage.getItem(CLOUD_URL_KEY) || DEFAULT_FIREBASE_DB_URL || '').trim().replace(/\/+$/, '');
+            const urlParams = new URLSearchParams(window.location.search);
+            const dbFromQuery = urlParams.get("db");
+            if (dbFromQuery && dbFromQuery.startsWith("https://")) {
+                localStorage.setItem(CLOUD_URL_KEY, dbFromQuery);
+                return dbFromQuery.replace(/\/$/, "");
+            }
+            const saved = localStorage.getItem(CLOUD_URL_KEY);
+            return (saved && saved.startsWith("https://") ? saved : DEFAULT_FIREBASE_DB_URL).replace(/\/$/, "");
         }
 
-        function updateCloudStatusUI() {
-            const url = getActiveCloudUrl();
-            const connected = isCloudConnected && !!url;
-
-            const landingDot = document.getElementById('landing-cloud-dot');
-            const landingText = document.getElementById('landing-cloud-text');
-            const landingBadge = document.getElementById('landing-cloud-badge');
-            const patientSyncLabel = document.getElementById('patient-sync-label');
-            const vetCloudLabel = document.getElementById('vet-cloud-label');
+        function updateCloudStatusUI(connected) {
+            isCloudConnected = connected;
+            const landingBadge = document.getElementById("landing-cloud-badge");
+            const landingDot = document.getElementById("landing-cloud-dot");
+            const landingText = document.getElementById("landing-cloud-text");
+            const vetText = document.getElementById("vet-cloud-text");
 
             if (connected) {
-                if (landingDot) landingDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
-                if (landingText) landingText.textContent = 'Cloud Aktif • Sinkron Antar-HP';
-                if (landingBadge) landingBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition';
-                if (patientSyncLabel) patientSyncLabel.textContent = 'Cloud Real-Time Aktif';
-                if (vetCloudLabel) vetCloudLabel.textContent = 'Cloud Aktif';
+                if (landingBadge) {
+                    landingBadge.className = "inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition";
+                }
+                if (landingDot) landingDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                if (landingText) landingText.textContent = "Cloud Aktif • Sinkron Antar-HP";
+                if (vetText) vetText.textContent = "Cloud Aktif (Live)";
             } else {
-                if (landingDot) landingDot.className = 'w-2 h-2 rounded-full bg-amber-500';
-                if (landingText) landingText.textContent = 'Mode Lokal HP • Klik Hubungkan Cloud';
-                if (landingBadge) landingBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition';
-                if (patientSyncLabel) patientSyncLabel.textContent = 'Tersimpan di HP';
-                if (vetCloudLabel) vetCloudLabel.textContent = 'Hubungkan Cloud';
+                if (landingBadge) {
+                    landingBadge.className = "inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition";
+                }
+                if (landingDot) landingDot.className = "w-2 h-2 rounded-full bg-amber-500";
+                if (landingText) landingText.textContent = "Mode Lokal HP • Klik Hubungkan Cloud";
+                if (vetText) vetText.textContent = "Menghubungkan...";
             }
         }
 
-        function initCloudSync() {
+        function initFirebaseSync() {
             const dbUrl = getActiveCloudUrl();
-            if (!dbUrl || typeof firebase === 'undefined') {
-                isCloudConnected = false;
-                updateCloudStatusUI();
+            if (!dbUrl || typeof firebase === "undefined") {
+                updateCloudStatusUI(false);
                 return;
             }
 
             try {
-                if (!firebase.apps.length) {
-                    firebase.initializeApp({ databaseURL: dbUrl });
+                if (firebase.apps.length) {
+                    firebase.app().delete().then(() => connectFirebaseInstance(dbUrl));
+                } else {
+                    connectFirebaseInstance(dbUrl);
                 }
-                firebaseDb = firebase.database();
-                isCloudConnected = true;
-                updateCloudStatusUI();
-
-                firebaseDb.ref('cat_diabetic_care_data').on('value', (snapshot) => {
-                    const cloudData = snapshot.val();
-                    if (!cloudData) {
-                        if (Object.keys(appState.doctors).length > 0 || Object.keys(appState.accounts).length > 0) {
-                            pushDataToCloud();
-                        }
-                        return;
-                    }
-
-                    appState.doctors = { ...appState.doctors, ...(cloudData.doctors || {}) };
-                    appState.accounts = { ...appState.accounts, ...(cloudData.accounts || {}) };
-
-                    Object.values(appState.accounts).forEach(acc => {
-                        acc.records = acc.records || {};
-                        acc.vetEvaluations = Array.isArray(acc.vetEvaluations)
-                            ? acc.vetEvaluations
-                            : (acc.vetEvaluations ? Object.values(acc.vetEvaluations) : []);
-                    });
-
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-                    populateDoctorSelectOptions();
-
-                    if (!document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
-                        const acc = getCurrentAccount();
-                        renderPatientVetFeedback(acc);
-                        renderDayPills();
-                    }
-                    if (!document.getElementById('view-vet').classList.contains('hidden') && getCurrentDoctor()) {
-                        if (appState.selectedVetUsername) {
-                            openVetPatientDetail(appState.selectedVetUsername);
-                        } else {
-                            renderVetPatientList();
-                        }
-                    }
-                });
             } catch (err) {
-                console.error('Firebase init error:', err);
-                isCloudConnected = false;
-                updateCloudStatusUI();
-                showToast('Gagal terhubung ke Firebase URL. Periksa kembali format tautan.');
+                console.error("Firebase init error:", err);
+                updateCloudStatusUI(false);
             }
         }
 
-        function pushDataToCloud() {
-            if (!isCloudConnected || !firebaseDb) return;
+        function connectFirebaseInstance(dbUrl) {
             try {
-                firebaseDb.ref('cat_diabetic_care_data').set({
-                    doctors: appState.doctors || {},
-                    accounts: appState.accounts || {},
-                    updatedAt: Date.now()
+                const app = firebase.initializeApp({ databaseURL: dbUrl });
+                firebaseDb = firebase.database(app);
+
+                // Pantau status koneksi real-time
+                firebaseDb.ref(".info/connected").on("value", (snap) => {
+                    updateCloudStatusUI(snap.val() === true);
+                });
+
+                // Listener Real-Time untuk seluruh perubahan di Cloud (HP <-> Laptop)
+                firebaseDb.ref(DB_ROOT_PATH).on("value", (snapshot) => {
+                    const cloudData = snapshot.val();
+                    if (cloudData) {
+                        store.accounts = cloudData.accounts || {};
+                        store.doctors = { ...store.doctors, ...(cloudData.doctors || {}) };
+                        store.updatedAt = cloudData.updatedAt || Date.now();
+                        saveLocalStore();
+                        refreshActiveViews();
+                    } else {
+                        // Inisialisasi awal jika database masih kosong
+                        firebaseDb.ref(DB_ROOT_PATH).set(store);
+                    }
+                }, (error) => {
+                    console.error("Firebase read error:", error);
+                    showToast("Gagal membaca database cloud. Periksa Rules Firebase.", "error");
                 });
             } catch (e) {
-                console.warn('Cloud push error:', e);
+                console.error("Connect instance error:", e);
+                updateCloudStatusUI(false);
             }
         }
 
-        function openCloudConfigModal() {
-            const input = document.getElementById('firebase-db-url');
-            if (input) input.value = getActiveCloudUrl();
-            document.getElementById('modal-cloud').classList.remove('hidden');
-            lucide.createIcons();
+        // Menulis perubahan secara spesifik (atomic path) agar tidak saling menimpa antar perangkat
+        async function writeCloudPath(subPath, payload) {
+            store.updatedAt = Date.now();
+            saveLocalStore();
+            if (!firebaseDb) return true;
+            try {
+                await firebaseDb.ref(`${DB_ROOT_PATH}/${subPath}`).set(payload);
+                await firebaseDb.ref(`${DB_ROOT_PATH}/updatedAt`).set(store.updatedAt);
+                return true;
+            } catch (err) {
+                console.error("Firebase write error:", err);
+                showToast("Gagal mengirim ke Cloud. Coba perkecil ukuran foto atau cek internet.", "error");
+                return false;
+            }
         }
 
-        function saveCloudConfig(e) {
-            e.preventDefault();
-            const rawUrl = document.getElementById('firebase-db-url').value.trim().replace(/\/+$/, '');
-            if (!rawUrl.startsWith('https://')) {
-                showToast('URL Firebase harus diawali dengan https://');
+        function manualRefreshCloud() {
+            if (!firebaseDb) {
+                initFirebaseSync();
                 return;
             }
-            localStorage.setItem(CLOUD_URL_KEY, rawUrl);
-            closeModal('modal-cloud');
-            showToast('Menghubungkan ke Cloud Real-Time...');
-            setTimeout(() => window.location.reload(), 600);
+            firebaseDb.ref(DB_ROOT_PATH).once("value").then((snap) => {
+                const cloudData = snap.val();
+                if (cloudData) {
+                    store.accounts = cloudData.accounts || {};
+                    store.doctors = { ...store.doctors, ...(cloudData.doctors || {}) };
+                    saveLocalStore();
+                    refreshActiveViews();
+                    showToast("Data berhasil disinkronkan dari Cloud!", "info");
+                }
+            });
         }
 
-        function disconnectCloud() {
-            localStorage.removeItem(CLOUD_URL_KEY);
-            isCloudConnected = false;
-            updateCloudStatusUI();
-            closeModal('modal-cloud');
-            showToast('Koneksi Cloud diputuskan. Kembali ke mode penyimpanan lokal HP.');
+        function refreshActiveViews() {
+            populateDoctorDropdown();
+            if (currentPatientUser && store.accounts[currentPatientUser]) {
+                renderPatientView();
+            }
+            if (currentVetUser && store.doctors[currentVetUser]) {
+                renderVetDashboard();
+                if (selectedVetPatientUser && store.accounts[selectedVetPatientUser]) {
+                    openVetPatientDetail(selectedVetPatientUser, false);
+                }
+            }
         }
 
-        // ==========================================
-        // INITIALIZATION
-        // ==========================================
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            loadStateFromStorage();
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const cloudFromUrl = urlParams.get('db');
-            if (cloudFromUrl) {
-                localStorage.setItem(CLOUD_URL_KEY, cloudFromUrl.trim());
-            }
-
-            initCloudSync();
-            populateDoctorSelectOptions();
-            generateQrCode();
-
-            const scanUser = urlParams.get('pasien');
-            if (scanUser) {
-                if (appState.accounts[scanUser]) {
-                    appState.currentUsername = scanUser;
-                    saveStateToStorage();
-                    enterPatientCard();
-                } else {
-                    appState.currentUsername = scanUser;
-                    setTimeout(() => {
-                        if (getCurrentAccount()) {
-                            enterPatientCard();
-                        } else {
-                            appState.currentUsername = null;
-                            goToLogin();
-                        }
-                    }, 1200);
-                }
-            } else if (urlParams.get('scan') === 'patient') {
-                if (getCurrentAccount()) {
-                    enterPatientCard();
-                } else {
-                    goToLogin();
-                }
-            } else if (getCurrentAccount()) {
-                enterPatientCard();
-            } else if (getCurrentDoctor()) {
-                enterVetPortal();
-            }
-        });
-
-        // ==========================================
-        // NAVIGATION & MODAL HELPERS
-        // ==========================================
+        // =====================================================================
+        // 2. NAVIGASI HALAMAN
+        // =====================================================================
         function navigateTo(viewName) {
-            ['view-landing', 'view-login', 'view-vet-auth', 'view-patient', 'view-vet'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
+            ["landing", "login", "vet-auth", "patient", "vet"].forEach((v) => {
+                const el = document.getElementById(`view-${v}`);
+                if (el) el.classList.add("hidden");
             });
             const target = document.getElementById(`view-${viewName}`);
-            if (target) target.classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (target) target.classList.remove("hidden");
             lucide.createIcons();
-        }
-
-        function closeModal(modalId) {
-            const el = document.getElementById(modalId);
-            if (el) el.classList.add('hidden');
-        }
-
-        let toastTimer = null;
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            const text = document.getElementById('toast-message');
-            if (!toast || !text) return;
-            text.textContent = msg;
-            toast.classList.remove('hidden');
-            lucide.createIcons();
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => {
-                toast.classList.add('hidden');
-            }, 3400);
-        }
-
-        // ==========================================
-        // AUTENTIKASI PASIEN
-        // ==========================================
-        function getCurrentAccount() {
-            if (!appState.currentUsername) return null;
-            return appState.accounts[appState.currentUsername] || null;
         }
 
         function goToLogin() {
-            populateDoctorSelectOptions();
-            switchAuthTab('login');
-            navigateTo('login');
+            populateDoctorDropdown();
+            switchAuthTab("login");
+            navigateTo("login");
+        }
+
+        function openVetPortal() {
+            switchVetAuthTab("login");
+            navigateTo("vet-auth");
         }
 
         function switchAuthTab(tab) {
-            const tabLogin = document.getElementById('auth-tab-login');
-            const tabReg = document.getElementById('auth-tab-register');
-            const formLogin = document.getElementById('form-auth-login');
-            const formReg = document.getElementById('form-auth-register');
+            const isLogin = tab === "login";
+            document.getElementById("form-auth-login").classList.toggle("hidden", !isLogin);
+            document.getElementById("form-auth-register").classList.toggle("hidden", isLogin);
+            document.getElementById("auth-tab-login").className = isLogin
+                ? "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition"
+                : "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition";
+            document.getElementById("auth-tab-register").className = !isLogin
+                ? "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition"
+                : "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition";
+        }
 
-            if (tab === 'login') {
-                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition';
-                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition';
-                formLogin.classList.remove('hidden');
-                formReg.classList.add('hidden');
-            } else {
-                populateDoctorSelectOptions();
-                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition';
-                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition';
-                formReg.classList.remove('hidden');
-                formLogin.classList.add('hidden');
+        function switchVetAuthTab(tab) {
+            const isLogin = tab === "login";
+            document.getElementById("form-vet-login").classList.toggle("hidden", !isLogin);
+            document.getElementById("form-vet-register").classList.toggle("hidden", isLogin);
+            document.getElementById("vet-auth-tab-login").className = isLogin
+                ? "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition"
+                : "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition";
+            document.getElementById("vet-auth-tab-register").className = !isLogin
+                ? "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition"
+                : "py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition";
+        }
+
+        function populateDoctorDropdown() {
+            const select = document.getElementById("reg-dokter");
+            if (!select) return;
+            const currentVal = select.value;
+            select.innerHTML = "";
+            const docs = Object.values(store.doctors || {});
+            if (docs.length === 0) {
+                select.innerHTML = `<option value="">-- Belum ada dokter terdaftar --</option>`;
+                return;
+            }
+            docs.forEach((doc) => {
+                const opt = document.createElement("option");
+                opt.value = doc.username;
+                opt.textContent = `${doc.fullName}${doc.clinic ? ` (${doc.clinic})` : ""}`;
+                select.appendChild(opt);
+            });
+            if (currentVal && store.doctors[currentVal]) {
+                select.value = currentVal;
             }
         }
 
-        function populateDoctorSelectOptions() {
-            const select = document.getElementById('reg-dokter');
-            if (!select) return;
-            const docs = Object.values(appState.doctors);
+        // =====================================================================
+        // 3. AUTENTIKASI & LOGIKA PASIEN (OWNER)
+        // =====================================================================
+        async function handleRegister(e) {
+            e.preventDefault();
+            const username = document.getElementById("reg-username").value.trim().toLowerCase();
+            const password = document.getElementById("reg-password").value.trim();
+            const catName = document.getElementById("reg-nama-pasien").value.trim();
+            const ownerName = document.getElementById("reg-nama-owner").value.trim();
+            const age = document.getElementById("reg-usia").value.trim();
+            const doctorUsername = document.getElementById("reg-dokter").value;
 
-            if (docs.length === 0) {
-                select.innerHTML = `<option value="">-- Belum ada dokter terdaftar (Daftar akun Dokter dulu) --</option>`;
+            if (!username || !password || !catName || !ownerName || !doctorUsername) {
+                showToast("Mohon lengkapi seluruh data pasien!", "error");
+                return;
+            }
+            if (store.accounts[username]) {
+                showToast("Nama akun sudah digunakan. Silakan pilih nama akun lain.", "error");
                 return;
             }
 
-            select.innerHTML = docs.map(doc =>
-                `<option value="${escapeHtml(doc.username)}">${escapeHtml(doc.fullName)}${doc.clinic ? ' (' + escapeHtml(doc.clinic) + ')' : ''}</option>`
-            ).join('');
+            const newAccount = {
+                username,
+                password,
+                catName,
+                ownerName,
+                age,
+                doctorUsername,
+                cycleWeek: 1,
+                status: "active", // Langsung aktif agar mudah diuji dan digunakan
+                startDate: new Date().toISOString().split("T")[0],
+                vetNote: "",
+                logs: {}
+            };
+
+            store.accounts[username] = newAccount;
+            const ok = await writeCloudPath(`accounts/${username}`, newAccount);
+            if (ok) {
+                currentPatientUser = username;
+                selectedDay = 1;
+                showToast(`Akun ${catName} berhasil didaftarkan!`);
+                renderPatientView();
+                navigateTo("patient");
+            }
         }
 
         function handleLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value;
+            const username = document.getElementById("login-username").value.trim().toLowerCase();
+            const password = document.getElementById("login-password").value.trim();
+            const acc = store.accounts[username];
 
-            const acc = appState.accounts[username];
-            if (!acc) {
-                showToast('Nama akun pasien tidak ditemukan. Silakan daftar pasien baru.');
-                return;
-            }
-            if (acc.password !== password) {
-                showToast('Password salah. Periksa kembali password Anda.');
+            if (!acc || acc.password !== password) {
+                showToast("Nama akun atau password pasien salah!", "error");
                 return;
             }
 
-            appState.currentUsername = username;
-            saveStateToStorage();
-            enterPatientCard();
-        }
-
-        function handleRegister(e) {
-            e.preventDefault();
-            const username = document.getElementById('reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
-            const password = document.getElementById('reg-password').value;
-            const namaPasien = document.getElementById('reg-nama-pasien').value.trim();
-            const namaOwner = document.getElementById('reg-nama-owner').value.trim();
-            const usia = document.getElementById('reg-usia').value.trim();
-            const dokterUsername = document.getElementById('reg-dokter').value;
-
-            if (!dokterUsername || !appState.doctors[dokterUsername]) {
-                showToast('Pilih Dokter Penanggung Jawab terlebih dahulu (atau buat akun dokter dulu).');
-                return;
-            }
-            if (appState.accounts[username]) {
-                showToast('Nama akun sudah dipakai. Gunakan nama akun lain.');
-                return;
-            }
-
-            const todayIso = getTodayIso();
-            const startIso = addDaysIso(todayIso, 1);
-
-            appState.accounts[username] = {
-                username,
-                password,
-                namaPasien,
-                namaOwner,
-                usia,
-                dokterUsername,
-                jenisObat: '',
-                mingguKe: '1',
-                jadwalKontrol: formatIndoDateFromIso(addDaysIso(startIso, 7)),
-                registeredDateIso: todayIso,
-                cycleStartDateIso: startIso,
-                monitoringStatus: 'active',
-                selectedDay: 1,
-                viewingHistoryWhilePaused: false,
-                records: {},
-                vetEvaluations: []
-            };
-
-            appState.currentUsername = username;
-            saveStateToStorage();
-            showToast(`Akun ${namaPasien} berhasil dibuat! Form mulai aktif besok.`);
-            enterPatientCard();
+            currentPatientUser = username;
+            selectedDay = getNextUnfilledDay(acc);
+            showToast(`Selamat datang kembali, ${acc.catName}!`);
+            renderPatientView();
+            navigateTo("patient");
         }
 
         function logoutPatient() {
-            appState.currentUsername = null;
-            saveStateToStorage();
-            navigateTo('landing');
+            currentPatientUser = null;
+            navigateTo("landing");
         }
 
-        // ==========================================
-        // AUTENTIKASI DOKTER HEWAN
-        // ==========================================
-        function getCurrentDoctor() {
-            if (!appState.currentDoctorUsername) return null;
-            return appState.doctors[appState.currentDoctorUsername] || null;
+        function getNextUnfilledDay(acc) {
+            const logs = acc.logs || {};
+            for (let d = 1; d <= 7; d++) {
+                if (!logs[`day_${d}`]) return d;
+            }
+            return 7;
         }
 
-        function openVetPortal() {
-            if (getCurrentDoctor()) {
-                enterVetPortal();
+        function renderPatientView() {
+            const acc = store.accounts[currentPatientUser];
+            if (!acc) return;
+
+            const doc = store.doctors[acc.doctorUsername];
+            document.getElementById("disp-nama-pasien").textContent = acc.catName;
+            document.getElementById("disp-nama-owner").textContent = acc.ownerName;
+            document.getElementById("disp-usia").textContent = acc.age;
+            document.getElementById("disp-dokter").textContent = doc ? doc.fullName : acc.doctorUsername;
+            document.getElementById("patient-cycle-badge").textContent = `Minggu ke-${acc.cycleWeek || 1}`;
+
+            // Catatan Dokter
+            const noteEl = document.getElementById("patient-vet-note-text");
+            noteEl.textContent = acc.vetNote && acc.vetNote.trim()
+                ? acc.vetNote
+                : "Belum ada catatan evaluasi khusus. Silakan isi laporan harian sesuai jadwal terapi.";
+
+            // Hitung progres hari terisi
+            const logs = acc.logs || {};
+            let filledCount = 0;
+            for (let d = 1; d <= 7; d++) {
+                if (logs[`day_${d}`]) filledCount++;
+            }
+            document.getElementById("patient-progress-text").textContent = `${filledCount} / 7 Hari Terisi`;
+
+            // Banner Status
+            const banner = document.getElementById("patient-status-banner");
+            const formEl = document.getElementById("form-daily-log");
+            if (acc.status === "stopped") {
+                banner.className = "mx-5 sm:mx-6 mt-4 rounded-2xl p-4 border-2 bg-amber-50 border-amber-300 text-amber-900 text-xs sm:text-sm font-semibold";
+                banner.innerHTML = `<strong>⏸️ Pemantauan Dijeda oleh Dokter:</strong> Siklus pemantauan saat ini dihentikan sementara oleh dokter penanggung jawab. Silakan ikuti arahan evaluasi dokter di atas.`;
+                banner.classList.remove("hidden");
+                formEl.classList.add("opacity-60", "pointer-events-none");
+            } else if (filledCount >= 7) {
+                banner.className = "mx-5 sm:mx-6 mt-4 rounded-2xl p-4 border-2 bg-emerald-50 border-emerald-300 text-emerald-900 text-xs sm:text-sm font-semibold";
+                banner.innerHTML = `<strong>✅ Siklus 7 Hari Selesai!</strong> Seluruh laporan Hari 1–7 telah terkirim ke dokter. Waktunya kontrol ke klinik agar dokter dapat mengevaluasi dan memulai siklus minggu berikutnya.`;
+                banner.classList.remove("hidden");
+                formEl.classList.remove("opacity-60", "pointer-events-none");
             } else {
-                switchVetAuthTab('login');
-                navigateTo('vet-auth');
+                banner.classList.add("hidden");
+                formEl.classList.remove("opacity-60", "pointer-events-none");
+            }
+
+            // Render Tab Hari 1 - 7
+            const tabsContainer = document.getElementById("day-tabs-container");
+            tabsContainer.innerHTML = "";
+            for (let d = 1; d <= 7; d++) {
+                const isFilled = Boolean(logs[`day_${d}`]);
+                const isSelected = selectedDay === d;
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.onclick = () => {
+                    selectedDay = d;
+                    renderPatientView();
+                };
+                btn.className = `py-2 px-1 rounded-xl border-2 text-center transition flex flex-col items-center justify-center ${
+                    isSelected
+                        ? "border-medNavy bg-medNavy text-white shadow-sm"
+                        : isFilled
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-300"
+                }`;
+                btn.innerHTML = `
+                    <span class="text-[10px] font-bold uppercase">H${d}</span>
+                    <span class="text-xs font-extrabold mt-0.5">${isFilled ? "✓" : d}</span>
+                `;
+                tabsContainer.appendChild(btn);
+            }
+
+            // Isi Form sesuai Hari Terpilih
+            loadDayDataToForm(acc, selectedDay);
+        }
+
+        function loadDayDataToForm(acc, dayNum) {
+            const log = (acc.logs && acc.logs[`day_${dayNum}`]) || null;
+            document.getElementById("form-day-title").textContent = `Laporan Hari ke-${dayNum}`;
+            document.getElementById("form-day-subtitle").textContent = log
+                ? `Terakhir disimpan pada ${log.savedAt || "hari ini"} (Anda dapat memperbaruinya kapan saja)`
+                : "Isi kondisi kucing Anda hari ini lalu klik tombol simpan di bawah";
+
+            document.getElementById("log-date").value = (log && log.date) || new Date().toISOString().split("T")[0];
+            document.getElementById("log-med-name").value = (log && log.medName) || getLastKnownMedName(acc) || "";
+            document.getElementById("log-insulin-time").value = (log && log.insulinTime) || "";
+            document.getElementById("log-insulin-dose").value = (log && log.insulinDose) || "";
+            document.getElementById("log-water").value = (log && log.water) || "";
+            document.getElementById("log-pee").value = (log && log.pee) || "";
+            document.getElementById("log-poop").value = (log && log.poop) || "Normal (Padat)";
+            document.getElementById("log-activity").value = (log && log.activity) || "Aktif & Responsif";
+            document.getElementById("log-notes").value = (log && log.notes) || "";
+
+            // Radio Makan Pagi & Malam
+            document.querySelectorAll('input[name="eat-morning"]').forEach((r) => {
+                r.checked = log ? r.value === log.eatMorning : r.value === "Habis";
+            });
+            document.querySelectorAll('input[name="eat-night"]').forEach((r) => {
+                r.checked = log ? r.value === log.eatNight : r.value === "Habis";
+            });
+
+            // Checkbox Tanda Bahaya
+            const dangers = (log && log.dangers) || [];
+            document.querySelectorAll(".danger-item").forEach((cb) => {
+                cb.checked = dangers.includes(cb.value);
+            });
+
+            // Media Preview
+            currentMediaBase64 = (log && log.media) || "";
+            const previewBox = document.getElementById("media-preview-box");
+            const statusText = document.getElementById("media-status-text");
+            if (currentMediaBase64) {
+                statusText.textContent = "1 foto klinis terlampir";
+                previewBox.innerHTML = `<img src="${currentMediaBase64}" alt="Lampiran Klinis" class="max-h-40 rounded-xl border border-slate-300 object-cover">`;
+                previewBox.classList.remove("hidden");
+            } else {
+                statusText.textContent = "Belum ada foto dilampirkan";
+                previewBox.innerHTML = "";
+                previewBox.classList.add("hidden");
             }
         }
 
-        function switchVetAuthTab(tab) {
-            const tabLogin = document.getElementById('vet-auth-tab-login');
-            const tabReg = document.getElementById('vet-auth-tab-register');
-            const formLogin = document.getElementById('form-vet-login');
-            const formReg = document.getElementById('form-vet-register');
+        function getLastKnownMedName(acc) {
+            if (!acc.logs) return "";
+            for (let d = 7; d >= 1; d--) {
+                if (acc.logs[`day_${d}`] && acc.logs[`day_${d}`].medName) {
+                    return acc.logs[`day_${d}`].medName;
+                }
+            }
+            return "";
+        }
 
-            if (tab === 'login') {
-                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition';
-                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition';
-                formLogin.classList.remove('hidden');
-                formReg.classList.add('hidden');
-            } else {
-                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition';
-                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition';
-                formReg.classList.remove('hidden');
-                formLogin.classList.add('hidden');
+        // Kompresi otomatis gambar dari kamera HP agar ringan dan pasti masuk ke Firebase
+        function handleMediaUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement("canvas");
+                    const MAX_WIDTH = 640;
+                    const scale = Math.min(1, MAX_WIDTH / img.width);
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    currentMediaBase64 = canvas.toDataURL("image/jpeg", 0.65);
+
+                    document.getElementById("media-status-text").textContent = "Foto berhasil dikompresi & siap dikirim";
+                    const previewBox = document.getElementById("media-preview-box");
+                    previewBox.innerHTML = `<img src="${currentMediaBase64}" alt="Preview" class="max-h-40 rounded-xl border border-slate-300 object-cover">`;
+                    previewBox.classList.remove("hidden");
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function saveDailyLog(e) {
+            e.preventDefault();
+            const acc = store.accounts[currentPatientUser];
+            if (!acc) return;
+
+            const btn = document.getElementById("btn-save-log");
+            btn.disabled = true;
+            btn.classList.add("opacity-70");
+
+            const eatMorningEl = document.querySelector('input[name="eat-morning"]:checked');
+            const eatNightEl = document.querySelector('input[name="eat-night"]:checked');
+            const dangers = Array.from(document.querySelectorAll(".danger-item:checked")).map((cb) => cb.value);
+
+            const logPayload = {
+                day: selectedDay,
+                date: document.getElementById("log-date").value,
+                medName: document.getElementById("log-med-name").value.trim(),
+                insulinTime: document.getElementById("log-insulin-time").value,
+                insulinDose: document.getElementById("log-insulin-dose").value.trim(),
+                eatMorning: eatMorningEl ? eatMorningEl.value : "Habis",
+                eatNight: eatNightEl ? eatNightEl.value : "Habis",
+                water: Number(document.getElementById("log-water").value || 0),
+                pee: Number(document.getElementById("log-pee").value || 0),
+                poop: document.getElementById("log-poop").value,
+                activity: document.getElementById("log-activity").value,
+                dangers,
+                notes: document.getElementById("log-notes").value.trim(),
+                media: currentMediaBase64 || "",
+                savedAt: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+            };
+
+            if (!acc.logs) acc.logs = {};
+            acc.logs[`day_${selectedDay}`] = logPayload;
+
+            // Tulis langsung ke node spesifik logs/day_X di Firebase agar dokter langsung menerima real-time
+            const ok = await writeCloudPath(`accounts/${currentPatientUser}/logs/day_${selectedDay}`, logPayload);
+
+            btn.disabled = false;
+            btn.classList.remove("opacity-70");
+
+            if (ok) {
+                showToast(`Laporan Hari ke-${selectedDay} tersimpan & terkirim ke Dokter!`);
+                renderPatientView();
+            }
+        }
+
+        // =====================================================================
+        // 4. PORTAL DOKTER HEWAN (TERISOLASI & LIVE UPDATE)
+        // =====================================================================
+        async function handleVetRegister(e) {
+            e.preventDefault();
+            const fullName = document.getElementById("vet-reg-fullname").value.trim();
+            const username = document.getElementById("vet-reg-username").value.trim().toLowerCase();
+            const password = document.getElementById("vet-reg-password").value.trim();
+            const clinic = document.getElementById("vet-reg-clinic").value.trim();
+
+            if (!fullName || !username || !password) {
+                showToast("Mohon lengkapi nama, username, dan password dokter!", "error");
+                return;
+            }
+            if (store.doctors[username]) {
+                showToast("Username dokter sudah terdaftar!", "error");
+                return;
+            }
+
+            const newVet = { username, password, fullName, clinic };
+            store.doctors[username] = newVet;
+            const ok = await writeCloudPath(`doctors/${username}`, newVet);
+            if (ok) {
+                currentVetUser = username;
+                showToast(`Akun ${fullName} berhasil dibuat!`);
+                renderVetDashboard();
+                navigateTo("vet");
             }
         }
 
         function handleVetLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('vet-login-username').value.trim().toLowerCase();
-            const password = document.getElementById('vet-login-password').value;
+            const username = document.getElementById("vet-login-username").value.trim().toLowerCase();
+            const password = document.getElementById("vet-login-password").value.trim();
+            const doc = store.doctors[username];
 
-            const doc = appState.doctors[username];
-            if (!doc) {
-                showToast('Username dokter tidak ditemukan. Silakan daftar dokter baru.');
-                return;
-            }
-            if (doc.password !== password) {
-                showToast('Password dokter salah.');
+            if (!doc || doc.password !== password) {
+                showToast("Username atau password dokter tidak sesuai!", "error");
                 return;
             }
 
-            appState.currentDoctorUsername = username;
-            saveStateToStorage();
-            enterVetPortal();
-        }
-
-        function handleVetRegister(e) {
-            e.preventDefault();
-            const fullName = document.getElementById('vet-reg-fullname').value.trim();
-            const username = document.getElementById('vet-reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
-            const password = document.getElementById('vet-reg-password').value;
-            const clinic = document.getElementById('vet-reg-sip').value.trim();
-
-            if (appState.doctors[username]) {
-                showToast('Username dokter sudah terdaftar.');
-                return;
-            }
-
-            appState.doctors[username] = {
-                username,
-                password,
-                fullName,
-                clinic
-            };
-
-            appState.currentDoctorUsername = username;
-            saveStateToStorage();
-            populateDoctorSelectOptions();
-            showToast(`Selamat datang, ${fullName}!`);
-            enterVetPortal();
+            currentVetUser = username;
+            selectedVetPatientUser = null;
+            document.getElementById("vet-detail-panel").classList.add("hidden");
+            showToast(`Selamat bertugas, ${doc.fullName}!`);
+            renderVetDashboard();
+            navigateTo("vet");
         }
 
         function logoutVet() {
-            appState.currentDoctorUsername = null;
-            appState.selectedVetUsername = null;
-            saveStateToStorage();
-            navigateTo('landing');
+            currentVetUser = null;
+            selectedVetPatientUser = null;
+            navigateTo("landing");
         }
 
-        // ==========================================
-        // LOGIKA KARTU PEMANTAUAN HARIAN PASIEN
-        // ==========================================
-        function computePatientScheduleState(acc) {
-            const todayIso = getTodayIso();
-            const startIso = acc.cycleStartDateIso || addDaysIso(acc.registeredDateIso || todayIso, 1);
-            const diff = diffDaysIso(startIso, todayIso);
-
-            if (acc.monitoringStatus === 'stopped_by_vet') {
-                return { mode: 'stopped_by_vet', activeDay: 7, startIso };
-            }
-
-            if (diff < 0) {
-                return { mode: 'waiting_tomorrow', activeDay: 1, startIso };
-            }
-
-            if (diff >= 7) {
-                return { mode: 'completed_control', activeDay: 7, startIso };
-            }
-
-            return { mode: 'active', activeDay: diff + 1, startIso };
-        }
-
-        function enterPatientCard() {
-            const acc = getCurrentAccount();
-            if (!acc) {
-                goToLogin();
-                return;
-            }
-
-            const doc = appState.doctors[acc.dokterUsername];
-            document.getElementById('active-account-badge').textContent = acc.namaPasien;
-            document.getElementById('header-doctor-name').textContent = doc ? doc.fullName : 'Dokter Hewan';
-
-            document.getElementById('id-nama-pasien').value = acc.namaPasien || '';
-            document.getElementById('id-nama-owner').value = acc.namaOwner || '';
-            document.getElementById('id-usia').value = acc.usia || '';
-            document.getElementById('id-jenis-obat').value = acc.jenisObat || '';
-            document.getElementById('id-minggu-ke').value = acc.mingguKe || '1';
-            document.getElementById('id-jadwal-kontrol').value = acc.jadwalKontrol || '';
-
-            const sched = computePatientScheduleState(acc);
-            if (!acc.selectedDay || acc.selectedDay < 1 || acc.selectedDay > 7) {
-                acc.selectedDay = sched.activeDay;
-            } else if (sched.mode === 'active') {
-                acc.selectedDay = sched.activeDay;
-            }
-
-            generateQrCode(acc);
-            renderPatientVetFeedback(acc);
-            renderDayPills();
-            updatePatientScreenState();
-            navigateTo('patient');
-        }
-
-        function savePatientTherapyFields() {
-            const acc = getCurrentAccount();
-            if (!acc) return;
-            acc.jenisObat = document.getElementById('id-jenis-obat').value;
-            acc.mingguKe = document.getElementById('id-minggu-ke').value;
-            acc.jadwalKontrol = document.getElementById('id-jadwal-kontrol').value;
-            saveStateToStorage();
-        }
-
-        function updatePatientScreenState() {
-            const acc = getCurrentAccount();
-            if (!acc) return;
-
-            const sched = computePatientScheduleState(acc);
-            const waitBox = document.getElementById('state-waiting-tomorrow');
-            const pauseBox = document.getElementById('state-paused-control');
-            const dailyForm = document.getElementById('daily-form');
-
-            waitBox.classList.add('hidden');
-            pauseBox.classList.add('hidden');
-            dailyForm.classList.add('hidden');
-
-            if (sched.mode === 'waiting_tomorrow') {
-                document.getElementById('waiting-start-date').textContent = formatIndoDateFromIso(sched.startIso);
-                waitBox.classList.remove('hidden');
-                return;
-            }
-
-            if ((sched.mode === 'completed_control' || sched.mode === 'stopped_by_vet') && !acc.viewingHistoryWhilePaused) {
-                if (sched.mode === 'stopped_by_vet') {
-                    document.getElementById('paused-badge-label').textContent = 'Dihentikan oleh Dokter Hewan';
-                    document.getElementById('paused-main-title').textContent = 'Pemantauan Dihentikan Sementara';
-                    document.getElementById('paused-description').textContent =
-                        'Dokter penanggung jawab telah menghentikan siklus pemantauan harian sementara. Formulir akan aktif kembali apabila dokter menekan tombol Mulai Pantau.';
-                } else {
-                    document.getElementById('paused-badge-label').textContent = 'Hari Kontrol Klinik • Sistem Berhenti Sementara';
-                    document.getElementById('paused-main-title').textContent = 'Kontrol Seminggu Selesai';
-                    document.getElementById('paused-description').textContent =
-                        'Pemantauan 7 hari telah selesai dan waktunya hari ini kontrol ke dokter hewan. Formulir harian otomatis berhenti sementara menunggu keputusan dokter setelah pemeriksaan.';
-                }
-                pauseBox.classList.remove('hidden');
-                return;
-            }
-
-            dailyForm.classList.remove('hidden');
-            loadDayForm(acc.selectedDay || sched.activeDay);
-        }
-
-        function viewPastRecordsWhilePaused() {
-            const acc = getCurrentAccount();
-            if (!acc) return;
-            acc.viewingHistoryWhilePaused = true;
-            acc.selectedDay = 1;
-            renderDayPills();
-            updatePatientScreenState();
-        }
-
-        function renderDayPills() {
-            const acc = getCurrentAccount();
-            if (!acc) return;
-            const container = document.getElementById('day-pills');
-            if (!container) return;
-
-            const sched = computePatientScheduleState(acc);
-            const activePillDay = acc.selectedDay || sched.activeDay;
-
-            let html = '';
-            for (let day = 1; day <= 7; day++) {
-                const hasRecord = !!(acc.records && acc.records[day]);
-                const isSelected = activePillDay === day;
-
-                let btnClass = 'py-1.5 rounded-lg text-xs font-extrabold border transition ';
-                if (isSelected) {
-                    btnClass += 'bg-medNavy text-white border-medNavy shadow-xs';
-                } else if (hasRecord) {
-                    btnClass += 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100';
-                } else {
-                    btnClass += 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50';
-                }
-
-                html += `<button type="button" onclick="selectPatientDay(${day})" class="${btnClass}">${day}</button>`;
-            }
-            container.innerHTML = html;
-        }
-
-        function selectPatientDay(day) {
-            const acc = getCurrentAccount();
-            if (!acc) return;
-            const sched = computePatientScheduleState(acc);
-
-            if (sched.mode === 'waiting_tomorrow') {
-                showToast('Formulir baru mulai aktif keesokan harinya.');
-                return;
-            }
-
-            if (sched.mode === 'active' && day > sched.activeDay) {
-                showToast(`Hari ke-${day} belum terbuka. Formulir berganti otomatis setiap 24 jam.`);
-                return;
-            }
-
-            acc.selectedDay = day;
-            renderDayPills();
-            loadDayForm(day);
-        }
-
-        function toggleMakanOption(waktu, pilihan) {
-            const habisEl = document.getElementById(`${waktu}-habis`);
-            const sisaEl = document.getElementById(`${waktu}-sisa-check`);
-            if (pilihan === 'habis' && habisEl.checked) {
-                sisaEl.checked = false;
-            } else if (pilihan === 'sisa' && sisaEl.checked) {
-                habisEl.checked = false;
-            }
-        }
-
-        function toggleGroup(groupName, selectedValue) {
-            const options = groupName === 'bab'
-                ? ['normal', 'lembek', 'diare']
-                : ['aktif', 'grooming', 'lesu'];
-
-            options.forEach(opt => {
-                if (opt !== selectedValue) {
-                    const el = document.getElementById(`${groupName}-${opt}`);
-                    if (el) el.checked = false;
-                }
+        function setVetFilter(filter) {
+            vetFilter = filter;
+            ["all", "danger", "control"].forEach((f) => {
+                const btn = document.getElementById(`vet-filter-${f}`);
+                if (!btn) return;
+                btn.className = f === filter
+                    ? "px-3.5 py-1.5 rounded-xl text-xs font-bold bg-medNavy text-white transition"
+                    : "px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
             });
+            renderVetPatientList();
         }
 
-        function handleMediaUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            if (file.size > 4 * 1024 * 1024) {
-                showToast('Ukuran foto/video maksimal 4 MB agar cepat tersimpan.');
-                event.target.value = '';
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                currentUploadedMedia = {
-                    name: file.name,
-                    type: file.type.startsWith('video/') ? 'video' : 'image',
-                    dataUrl: e.target.result
-                };
-                renderMediaPreview(currentUploadedMedia);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function renderMediaPreview(media) {
-            const wrapper = document.getElementById('media-preview-wrapper');
-            const img = document.getElementById('media-preview-img');
-            const vid = document.getElementById('media-preview-video');
-            const nameEl = document.getElementById('media-file-name');
-
-            if (!media || !media.dataUrl) {
-                wrapper.classList.add('hidden');
-                img.classList.add('hidden');
-                vid.classList.add('hidden');
-                return;
-            }
-
-            wrapper.classList.remove('hidden');
-            nameEl.textContent = media.name || 'lampiran';
-
-            if (media.type === 'video') {
-                img.classList.add('hidden');
-                vid.src = media.dataUrl;
-                vid.classList.remove('hidden');
-            } else {
-                vid.classList.add('hidden');
-                img.src = media.dataUrl;
-                img.classList.remove('hidden');
-            }
-            lucide.createIcons();
-        }
-
-        function removeMediaAttachment() {
-            currentUploadedMedia = null;
-            const input = document.getElementById('catatan-media-input');
-            if (input) input.value = '';
-            renderMediaPreview(null);
-        }
-
-        function loadDayForm(day) {
-            const acc = getCurrentAccount();
-            if (!acc) return;
-
-            const sched = computePatientScheduleState(acc);
-            const dayDateIso = addDaysIso(sched.startIso, day - 1);
-
-            document.getElementById('display-day-label').textContent = `Hari ${day} (dari 7)`;
-            document.getElementById('display-date').textContent = formatIndoDateFromIso(dayDateIso);
-
-            const rec = (acc.records && acc.records[day]) ? acc.records[day] : null;
-            const badge = document.getElementById('status-badge');
-
-            if (rec) {
-                badge.textContent = 'Sudah Tersimpan';
-                badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
-            } else {
-                badge.textContent = 'Form Kosong';
-                badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
-            }
-
-            document.getElementById('pagi-habis').checked = rec ? !!rec.pagiHabis : false;
-            document.getElementById('pagi-sisa-check').checked = rec ? !!rec.pagiSisaCheck : false;
-            document.getElementById('pagi-sisa-text').value = rec ? (rec.pagiSisaText || '') : '';
-            document.getElementById('pagi-jam').value = rec ? (rec.pagiJam || '') : '';
-            document.getElementById('pagi-u').value = rec ? (rec.pagiU || '') : '';
-
-            document.getElementById('malam-habis').checked = rec ? !!rec.malamHabis : false;
-            document.getElementById('malam-sisa-check').checked = rec ? !!rec.malamSisaCheck : false;
-            document.getElementById('malam-sisa-text').value = rec ? (rec.malamSisaText || '') : '';
-            document.getElementById('malam-jam').value = rec ? (rec.malamJam || '') : '';
-            document.getElementById('malam-u').value = rec ? (rec.malamU || '') : '';
-
-            document.getElementById('pantauan-minum').value = rec ? (rec.minum || '') : '';
-            document.getElementById('pantauan-pipis').value = rec ? (rec.pipis || '') : '';
-
-            ['normal', 'lembek', 'diare'].forEach(opt => {
-                document.getElementById(`bab-${opt}`).checked = rec ? (rec.bab === opt) : false;
-            });
-            ['aktif', 'grooming', 'lesu'].forEach(opt => {
-                document.getElementById(`aktivitas-${opt}`).checked = rec ? (rec.aktivitas === opt) : false;
-            });
-
-            document.getElementById('bahaya-tolak').checked = rec ? !!rec.bahayaTolak : false;
-            document.getElementById('bahaya-muntah').checked = rec ? !!rec.bahayaMuntah : false;
-            document.getElementById('bahaya-lemas').checked = rec ? !!rec.bahayaLemas : false;
-
-            document.getElementById('catatan-harian').value = rec ? (rec.catatan || '') : '';
-            currentUploadedMedia = rec && rec.media ? rec.media : null;
-            renderMediaPreview(currentUploadedMedia);
-        }
-
-        function saveCurrentDay(e) {
-            e.preventDefault();
-            const acc = getCurrentAccount();
-            if (!acc) return;
-
-            const sched = computePatientScheduleState(acc);
-            const day = acc.selectedDay || sched.activeDay;
-            const dayDateIso = addDaysIso(sched.startIso, day - 1);
-
-            let babVal = '';
-            ['normal', 'lembek', 'diare'].forEach(opt => {
-                if (document.getElementById(`bab-${opt}`).checked) babVal = opt;
-            });
-
-            let aktivitasVal = '';
-            ['aktif', 'grooming', 'lesu'].forEach(opt => {
-                if (document.getElementById(`aktivitas-${opt}`).checked) aktivitasVal = opt;
-            });
-
-            acc.records = acc.records || {};
-            acc.records[day] = {
-                day,
-                dateIso: dayDateIso,
-                dateLabel: formatIndoDateFromIso(dayDateIso),
-                pagiHabis: document.getElementById('pagi-habis').checked,
-                pagiSisaCheck: document.getElementById('pagi-sisa-check').checked,
-                pagiSisaText: document.getElementById('pagi-sisa-text').value.trim(),
-                pagiJam: document.getElementById('pagi-jam').value,
-                pagiU: document.getElementById('pagi-u').value.trim(),
-                malamHabis: document.getElementById('malam-habis').checked,
-                malamSisaCheck: document.getElementById('malam-sisa-check').checked,
-                malamSisaText: document.getElementById('malam-sisa-text').value.trim(),
-                malamJam: document.getElementById('malam-jam').value,
-                malamU: document.getElementById('malam-u').value.trim(),
-                minum: document.getElementById('pantauan-minum').value,
-                pipis: document.getElementById('pantauan-pipis').value,
-                bab: babVal,
-                aktivitas: aktivitasVal,
-                bahayaTolak: document.getElementById('bahaya-tolak').checked,
-                bahayaMuntah: document.getElementById('bahaya-muntah').checked,
-                bahayaLemas: document.getElementById('bahaya-lemas').checked,
-                catatan: document.getElementById('catatan-harian').value.trim(),
-                media: currentUploadedMedia,
-                savedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-            };
-
-            saveStateToStorage();
-            renderDayPills();
-            loadDayForm(day);
-            showToast(`Laporan Hari ke-${day} berhasil disimpan!`);
-        }
-
-        function renderPatientVetFeedback(acc) {
-            const box = document.getElementById('patient-vet-feedback-box');
-            if (!box) return;
-
-            const evals = Array.isArray(acc.vetEvaluations) ? acc.vetEvaluations : [];
-            if (evals.length === 0) {
-                box.classList.add('hidden');
-                return;
-            }
-
-            const latest = evals[0];
-            box.classList.remove('hidden');
-            document.getElementById('patient-vet-comment-text').textContent = latest.comment || '-';
-            document.getElementById('patient-vet-author').textContent = latest.doctorName || 'Dokter Hewan';
-            document.getElementById('patient-vet-time').textContent = latest.timestamp || '';
-
-            const badge = document.getElementById('patient-vet-status-badge');
-            badge.textContent = latest.status || 'Lanjutkan Terapi';
-            if (latest.status === 'Segera Bawa ke Klinik') {
-                badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300';
-            } else if (latest.status === 'Sesuaikan Dosis') {
-                badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
-            } else {
-                badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
-            }
-        }
-
-        // ==========================================
-        // PORTAL DOKTER HEWAN (TERISOLASI PER DOKTER)
-        // ==========================================
-        function getDoctorPatients(doctorUsername) {
-            return Object.values(appState.accounts).filter(acc => acc.dokterUsername === doctorUsername);
+        function getMyPatients() {
+            return Object.values(store.accounts || {}).filter(
+                (acc) => acc.doctorUsername === currentVetUser
+            );
         }
 
         function hasPatientDanger(acc) {
-            if (!acc.records) return false;
-            return Object.values(acc.records).some(r => r && (r.bahayaTolak || r.bahayaMuntah || r.bahayaLemas));
+            const logs = acc.logs || {};
+            return Object.values(logs).some(
+                (l) => (l.dangers && l.dangers.length > 0) || (l.poop && l.poop.includes("Berdarah")) || (l.poop && l.poop.includes("Diare"))
+            );
         }
 
-        function isPatientCompletedOrStopped(acc) {
-            const sched = computePatientScheduleState(acc);
-            return sched.mode === 'completed_control' || sched.mode === 'stopped_by_vet';
-        }
-
-        function enterVetPortal() {
-            const doc = getCurrentDoctor();
-            if (!doc) {
-                navigateTo('vet-auth');
-                return;
+        function getFilledDaysCount(acc) {
+            const logs = acc.logs || {};
+            let count = 0;
+            for (let d = 1; d <= 7; d++) {
+                if (logs[`day_${d}`]) count++;
             }
-
-            document.getElementById('logged-vet-display-name').textContent = doc.fullName;
-            document.getElementById('logged-vet-clinic-info').textContent = doc.clinic ? `• ${doc.clinic}` : '';
-            document.getElementById('btn-vet-sender-name').textContent = doc.fullName;
-
-            appState.selectedVetUsername = null;
-            document.getElementById('vet-detail-panel').classList.add('hidden');
-            document.getElementById('vet-list-panel').classList.remove('hidden');
-
-            renderVetPatientList();
-            navigateTo('vet');
+            return count;
         }
 
-        function setVetFilter(filterType) {
-            appState.vetFilter = filterType;
-            ['all', 'danger', 'completed'].forEach(f => {
-                const btn = document.getElementById(`filter-btn-${f}`);
-                if (!btn) return;
-                if (f === filterType) {
-                    btn.className = 'vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-medNavy text-white transition';
-                } else {
-                    btn.className = 'vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition';
-                }
-            });
+        function renderVetDashboard() {
+            const doc = store.doctors[currentVetUser];
+            if (!doc) return;
+
+            document.getElementById("vet-logged-name").textContent = doc.fullName;
+            document.getElementById("vet-logged-clinic").textContent = doc.clinic ? `• ${doc.clinic}` : "";
+
+            const myPatients = getMyPatients();
+            const dangerCount = myPatients.filter(hasPatientDanger).length;
+            const controlCount = myPatients.filter((p) => p.status === "stopped" || getFilledDaysCount(p) >= 7).length;
+
+            document.getElementById("stat-total-patients").textContent = myPatients.length;
+            document.getElementById("stat-danger-patients").textContent = dangerCount;
+            document.getElementById("stat-control-patients").textContent = controlCount;
+
             renderVetPatientList();
         }
 
         function renderVetPatientList() {
-            const doc = getCurrentDoctor();
-            if (!doc) return;
+            const container = document.getElementById("vet-patient-list");
+            const query = (document.getElementById("vet-search-input").value || "").trim().toLowerCase();
+            let patients = getMyPatients();
 
-            const myPatients = getDoctorPatients(doc.username);
-            const dangerCount = myPatients.filter(hasPatientDanger).length;
-            const completedCount = myPatients.filter(isPatientCompletedOrStopped).length;
+            if (query) {
+                patients = patients.filter(
+                    (p) => p.catName.toLowerCase().includes(query) || p.ownerName.toLowerCase().includes(query)
+                );
+            }
+            if (vetFilter === "danger") {
+                patients = patients.filter(hasPatientDanger);
+            } else if (vetFilter === "control") {
+                patients = patients.filter((p) => p.status === "stopped" || getFilledDaysCount(p) >= 7);
+            }
 
-            document.getElementById('vet-stat-total').textContent = myPatients.length;
-            document.getElementById('vet-stat-danger').textContent = dangerCount;
-            document.getElementById('vet-stat-completed').textContent = completedCount;
-
-            const query = (document.getElementById('vet-search-input').value || '').trim().toLowerCase();
-            const filtered = myPatients.filter(acc => {
-                if (appState.vetFilter === 'danger' && !hasPatientDanger(acc)) return false;
-                if (appState.vetFilter === 'completed' && !isPatientCompletedOrStopped(acc)) return false;
-                if (query) {
-                    const matchName = (acc.namaPasien || '').toLowerCase().includes(query);
-                    const matchOwner = (acc.namaOwner || '').toLowerCase().includes(query);
-                    return matchName || matchOwner;
-                }
-                return true;
-            });
-
-            const container = document.getElementById('vet-patient-cards');
-            if (filtered.length === 0) {
+            if (patients.length === 0) {
                 container.innerHTML = `
-                    <div class="col-span-full bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs sm:text-sm text-slate-500">
-                        Belum ada pasien kucing terdaftar pada akun <strong>${escapeHtml(doc.fullName)}</strong> untuk filter ini.
+                    <div class="col-span-full bg-white rounded-2xl p-8 text-center border border-slate-200 text-slate-500 text-xs sm:text-sm">
+                        Belum ada pasien yang sesuai filter pada akun dokter Anda.
                     </div>
                 `;
                 return;
             }
 
-            container.innerHTML = filtered.map(acc => {
-                const sched = computePatientScheduleState(acc);
-                const danger = hasPatientDanger(acc);
-                const filledCount = Object.keys(acc.records || {}).length;
-                const latestEval = (acc.vetEvaluations && acc.vetEvaluations.length > 0) ? acc.vetEvaluations[0] : null;
+            container.innerHTML = "";
+            patients.forEach((p) => {
+                const filled = getFilledDaysCount(p);
+                const danger = hasPatientDanger(p);
+                const medName = getLastKnownMedName(p) || "Belum diisi";
+                const statusBadge = p.status === "stopped"
+                    ? `<span class="bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-full">Dijeda Dokter</span>`
+                    : filled >= 7
+                    ? `<span class="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2.5 py-1 rounded-full">Selesai 7/7 • Kontrol</span>`
+                    : `<span class="bg-amber-100 text-amber-800 text-[11px] font-bold px-2.5 py-1 rounded-full">Aktif • Hari ${Math.min(filled + 1, 7)}/7</span>`;
 
-                let statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Aktif • Hari ${sched.activeDay}/7</span>`;
-                if (sched.mode === 'waiting_tomorrow') {
-                    statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">Mulai Besok</span>`;
-                } else if (sched.mode === 'completed_control') {
-                    statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Hari Kontrol (7/7)</span>`;
-                } else if (sched.mode === 'stopped_by_vet') {
-                    statusPill = `<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">Dihentikan Dokter</span>`;
-                }
+                const card = document.createElement("div");
+                card.className = `bg-white rounded-3xl p-5 border-2 ${
+                    selectedVetPatientUser === p.username ? "border-medNavy shadow-lg" : danger ? "border-red-300 shadow-xs" : "border-slate-200 shadow-xs"
+                } hover:border-medNavy transition cursor-pointer flex flex-col justify-between gap-4`;
+                card.onclick = () => openVetPatientDetail(p.username, true);
 
-                return `
-                    <div onclick="openVetPatientDetail('${escapeHtml(acc.username)}')" class="cursor-pointer bg-white hover:bg-blue-50/30 rounded-2xl border-2 ${danger ? 'border-red-300' : 'border-slate-200 hover:border-medNavy'} p-4 shadow-xs transition flex flex-col justify-between gap-3">
+                card.innerHTML = `
+                    <div>
                         <div class="flex items-start justify-between gap-2">
                             <div>
                                 <div class="flex items-center gap-2">
-                                    <h3 class="font-display font-extrabold text-base sm:text-lg text-medNavy">${escapeHtml(acc.namaPasien)}</h3>
-                                    ${danger ? '<span class="text-[10px] font-extrabold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">⚠️ Bahaya</span>' : ''}
+                                    <h3 class="font-display font-extrabold text-lg text-medNavy">${p.catName}</h3>
+                                    ${danger ? `<span class="text-[10px] font-extrabold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">⚠️ Perlu Perhatian</span>` : ""}
                                 </div>
-                                <p class="text-xs text-slate-500 mt-0.5">Owner: <strong>${escapeHtml(acc.namaOwner)}</strong> • Usia: ${escapeHtml(acc.usia)} • Minggu ke-${escapeHtml(acc.mingguKe || '1')}</p>
+                                <p class="text-xs text-slate-500 font-medium mt-0.5">
+                                    Owner: <strong class="text-slate-700">${p.ownerName}</strong> &bull; Usia: <strong>${p.age}</strong> &bull; Minggu ke-${p.cycleWeek || 1}
+                                </p>
                             </div>
-                            ${statusPill}
+                            ${statusBadge}
                         </div>
 
-                        <div class="text-xs text-slate-600 flex items-center justify-between border-t border-slate-100 pt-2.5">
-                            <span>Obat: <strong class="text-medNavy">${escapeHtml(acc.jenisObat || '-')}</strong></span>
-                            <span>Terisi: <strong>${filledCount}/7 hari</strong></span>
+                        <div class="mt-4 flex items-center justify-between text-xs">
+                            <span class="text-slate-600">Obat: <strong class="text-medNavy">${medName}</strong></span>
+                            <span class="text-slate-600">Terisi: <strong class="${filled > 0 ? "text-emerald-700" : "text-slate-800"}">${filled}/7 hari</strong></span>
                         </div>
 
-                        <div class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[11px] text-slate-600 truncate">
-                            ${latestEval ? `💬 ${escapeHtml(latestEval.comment)}` : '<span class="italic text-slate-400">Belum ada catatan evaluasi dokter.</span>'}
-                        </div>
-
-                        <div class="flex justify-end">
-                            <span class="text-xs font-bold text-medNavy inline-flex items-center gap-1">
-                                Kelola Pantauan & Evaluasi <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                            </span>
+                        <div class="mt-3 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-xs text-slate-600 italic truncate">
+                            ${p.vetNote ? p.vetNote : "Belum ada catatan evaluasi dokter."}
                         </div>
                     </div>
-                `;
-            }).join('');
 
-            lucide.createIcons();
-        }
-
-        function openVetPatientDetail(patientUsername) {
-            const doc = getCurrentDoctor();
-            const acc = appState.accounts[patientUsername];
-            if (!doc || !acc || acc.dokterUsername !== doc.username) {
-                showToast('Akses ditolak: pasien ini terdaftar pada dokter lain.');
-                return;
-            }
-
-            appState.selectedVetUsername = patientUsername;
-            document.getElementById('vet-list-panel').classList.add('hidden');
-            document.getElementById('vet-detail-panel').classList.remove('hidden');
-
-            const sched = computePatientScheduleState(acc);
-            const danger = hasPatientDanger(acc);
-
-            document.getElementById('detail-patient-name').textContent = acc.namaPasien;
-            document.getElementById('detail-owner-info').textContent = `Owner: ${acc.namaOwner} • Usia: ${acc.usia} • Minggu ke-${acc.mingguKe || '1'}`;
-            document.getElementById('detail-doctor-assigned').textContent = `Dokter Penanggung Jawab: ${doc.fullName}`;
-            document.getElementById('detail-med-info').textContent = acc.jenisObat || 'Belum diisi';
-            document.getElementById('detail-control-info').textContent = `Kontrol: ${acc.jadwalKontrol || '-'}`;
-
-            const dangerPill = document.getElementById('detail-danger-pill');
-            if (danger) dangerPill.classList.remove('hidden');
-            else dangerPill.classList.add('hidden');
-
-            const monPill = document.getElementById('detail-monitoring-pill');
-            if (sched.mode === 'stopped_by_vet') {
-                monPill.textContent = '⏸️ Pemantauan Dihentikan Dokter';
-                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-slate-200 text-slate-700 border border-slate-300';
-            } else if (sched.mode === 'completed_control') {
-                monPill.textContent = '⏸️ Selesai 7 Hari (Menunggu Keputusan Dokter)';
-                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
-            } else if (sched.mode === 'waiting_tomorrow') {
-                monPill.textContent = '🕒 Mulai Aktif Besok';
-                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300';
-            } else {
-                monPill.textContent = `● Pemantauan Aktif (Hari ${sched.activeDay}/7)`;
-                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
-            }
-
-            renderVetCharts(acc);
-            renderVetCommentHistory(acc);
-            renderVetDailyRecap(acc);
-            lucide.createIcons();
-        }
-
-        function closeVetDetail() {
-            appState.selectedVetUsername = null;
-            document.getElementById('vet-detail-panel').classList.add('hidden');
-            document.getElementById('vet-list-panel').classList.remove('hidden');
-            renderVetPatientList();
-        }
-
-        function doctorStartMonitoring() {
-            const acc = appState.accounts[appState.selectedVetUsername];
-            if (!acc) return;
-
-            const todayIso = getTodayIso();
-            const currentWeek = parseInt(acc.mingguKe || '1', 10) || 1;
-            const nextWeek = Object.keys(acc.records || {}).length >= 7 ? currentWeek + 1 : currentWeek;
-
-            acc.monitoringStatus = 'active';
-            acc.cycleStartDateIso = todayIso;
-            acc.mingguKe = String(nextWeek);
-            acc.jadwalKontrol = formatIndoDateFromIso(addDaysIso(todayIso, 7));
-            acc.selectedDay = 1;
-            acc.viewingHistoryWhilePaused = false;
-            acc.records = {};
-
-            saveStateToStorage();
-            openVetPatientDetail(acc.username);
-            showToast(`Siklus pemantauan minggu ke-${nextWeek} untuk ${acc.namaPasien} telah diaktifkan!`);
-        }
-
-        function doctorStopMonitoring() {
-            const acc = appState.accounts[appState.selectedVetUsername];
-            if (!acc) return;
-
-            acc.monitoringStatus = 'stopped_by_vet';
-            acc.viewingHistoryWhilePaused = false;
-            saveStateToStorage();
-            openVetPatientDetail(acc.username);
-            showToast(`Pemantauan harian ${acc.namaPasien} telah dihentikan sementara.`);
-        }
-
-        function renderVetCharts(acc) {
-            const minumVals = [];
-            const pipisVals = [];
-            for (let d = 1; d <= 7; d++) {
-                const r = acc.records && acc.records[d];
-                minumVals.push(r && r.minum ? Number(r.minum) : 0);
-                pipisVals.push(r && r.pipis ? Number(r.pipis) : 0);
-            }
-
-            const maxMinum = Math.max(...minumVals, 100);
-            const maxPipis = Math.max(...pipisVals, 5);
-
-            document.getElementById('chart-minum').innerHTML = minumVals.map((val, idx) => {
-                const hPct = val > 0 ? Math.max(15, Math.round((val / maxMinum) * 100)) : 6;
-                return `
-                    <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                        <span class="text-[9px] font-bold text-slate-600">${val > 0 ? val : '-'}</span>
-                        <div class="w-full rounded-t-md ${val > 0 ? 'bg-blue-500' : 'bg-slate-200'}" style="height: ${hPct}%"></div>
-                        <span class="text-[10px] font-bold text-slate-500">H${idx + 1}</span>
+                    <div class="flex justify-end">
+                        <span class="inline-flex items-center gap-1 text-xs font-extrabold text-medNavy">
+                            <span>Kelola Pantauan & Evaluasi</span>
+                            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                        </span>
                     </div>
                 `;
-            }).join('');
-
-            document.getElementById('chart-pipis').innerHTML = pipisVals.map((val, idx) => {
-                const hPct = val > 0 ? Math.max(15, Math.round((val / maxPipis) * 100)) : 6;
-                return `
-                    <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                        <span class="text-[9px] font-bold text-slate-600">${val > 0 ? val + 'x' : '-'}</span>
-                        <div class="w-full rounded-t-md ${val > 0 ? 'bg-teal-500' : 'bg-slate-200'}" style="height: ${hPct}%"></div>
-                        <span class="text-[10px] font-bold text-slate-500">H${idx + 1}</span>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function submitVetEvaluation(e) {
-            e.preventDefault();
-            const doc = getCurrentDoctor();
-            const acc = appState.accounts[appState.selectedVetUsername];
-            if (!doc || !acc) return;
-
-            const statusEl = document.querySelector('input[name="vet-status"]:checked');
-            const commentInput = document.getElementById('vet-comment-input');
-            const comment = commentInput.value.trim();
-            if (!comment) return;
-
-            acc.vetEvaluations = Array.isArray(acc.vetEvaluations) ? acc.vetEvaluations : [];
-            acc.vetEvaluations.unshift({
-                status: statusEl ? statusEl.value : 'Lanjutkan Terapi',
-                comment,
-                doctorName: doc.fullName,
-                timestamp: `${formatIndoDateFromIso(getTodayIso())} • ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+                container.appendChild(card);
             });
-
-            commentInput.value = '';
-            saveStateToStorage();
-            renderVetCommentHistory(acc);
-            showToast('Evaluasi dokter berhasil dikirim ke kartu pemilik kucing!');
+            lucide.createIcons();
         }
 
-        function renderVetCommentHistory(acc) {
-            const container = document.getElementById('vet-comment-history');
-            const evals = Array.isArray(acc.vetEvaluations) ? acc.vetEvaluations : [];
+        function openVetPatientDetail(username, shouldScroll = true) {
+            const p = store.accounts[username];
+            if (!p) return;
+            selectedVetPatientUser = username;
 
-            if (evals.length === 0) {
-                container.innerHTML = `<p class="text-xs italic text-slate-400">Belum ada evaluasi yang dikirimkan untuk pasien ini.</p>`;
-                return;
+            const panel = document.getElementById("vet-detail-panel");
+            panel.classList.remove("hidden");
+
+            const filled = getFilledDaysCount(p);
+            document.getElementById("vet-detail-title").textContent = `${p.catName} (Owner: ${p.ownerName})`;
+            document.getElementById("vet-detail-subtitle").textContent = `Usia: ${p.age} • Siklus Minggu ke-${p.cycleWeek || 1} • Laporan Terisi: ${filled}/7 Hari`;
+            document.getElementById("vet-detail-status-badge").textContent = p.status === "stopped" ? "Dijeda Dokter" : "Aktif Dipantau";
+            document.getElementById("vet-eval-input").value = p.vetNote || "";
+
+            // Render Grafik Tren Minum & Pipis
+            const chartBox = document.getElementById("vet-trend-chart");
+            chartBox.innerHTML = "";
+            const logs = p.logs || {};
+            let maxWater = 100;
+            for (let d = 1; d <= 7; d++) {
+                if (logs[`day_${d}`] && logs[`day_${d}`].water > maxWater) {
+                    maxWater = logs[`day_${d}`].water;
+                }
             }
 
-            container.innerHTML = evals.map(ev => `
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
-                    <div class="flex items-center justify-between gap-2">
-                        <span class="font-extrabold text-medNavy">${escapeHtml(ev.status)}</span>
-                        <span class="text-[10px] text-slate-500">${escapeHtml(ev.timestamp)}</span>
-                    </div>
-                    <p class="text-slate-700 leading-relaxed">${escapeHtml(ev.comment)}</p>
-                    <div class="text-[10px] font-semibold text-blue-700">${escapeHtml(ev.doctorName)}</div>
-                </div>
-            `).join('');
-        }
-
-        function renderVetDailyRecap(acc) {
-            const container = document.getElementById('vet-daily-recap-list');
-            let html = '';
-
             for (let d = 1; d <= 7; d++) {
-                const r = acc.records && acc.records[d];
-                if (!r) {
-                    html += `
-                        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60 flex items-center justify-between text-xs text-slate-400">
-                            <span class="font-bold">Hari ke-${d}</span>
-                            <span>Belum ada laporan harian</span>
+                const l = logs[`day_${d}`];
+                const waterVal = l ? Number(l.water || 0) : 0;
+                const peeVal = l ? Number(l.pee || 0) : 0;
+                const pct = l ? Math.max(12, Math.round((waterVal / maxWater) * 100)) : 6;
+                chartBox.innerHTML += `
+                    <div class="flex flex-col items-center justify-end h-full gap-1">
+                        <span class="text-[9px] font-bold text-slate-600">${l ? `${waterVal}ml` : "-"}</span>
+                        <div class="w-full max-w-[28px] rounded-t-lg ${l ? "bg-medNavy" : "bg-slate-200"} transition-all" style="height: ${pct}%"></div>
+                        <span class="text-[10px] font-extrabold text-medNavy">H${d}</span>
+                        <span class="text-[9px] text-blue-700 font-semibold">${l ? `${peeVal}x pipis` : ""}</span>
+                    </div>
+                `;
+            }
+
+            // Render Rekap Harian
+            const logsContainer = document.getElementById("vet-daily-logs-list");
+            logsContainer.innerHTML = "";
+            let hasAnyLog = false;
+            for (let d = 1; d <= 7; d++) {
+                const l = logs[`day_${d}`];
+                if (!l) continue;
+                hasAnyLog = true;
+                const dangerHtml = l.dangers && l.dangers.length
+                    ? `<div class="mt-2 bg-red-50 border border-red-200 text-red-800 text-xs font-bold px-3 py-1.5 rounded-xl">⚠️ Tanda Bahaya: ${l.dangers.join(", ")}</div>`
+                    : "";
+                const mediaHtml = l.media
+                    ? `<div class="mt-2"><img src="${l.media}" alt="Foto H${d}" class="max-h-44 rounded-xl border border-slate-300"></div>`
+                    : "";
+
+                logsContainer.innerHTML += `
+                    <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50/60">
+                        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200">
+                            <span class="font-display font-extrabold text-sm text-medNavy">Hari ke-${d} (${l.date || "-"})</span>
+                            <span class="text-[11px] font-semibold text-slate-500">Disimpan pukul ${l.savedAt || "-"}</span>
                         </div>
-                    `;
-                    continue;
-                }
-
-                const bahayaList = [];
-                if (r.bahayaTolak) bahayaList.push('Tolak makan');
-                if (r.bahayaMuntah) bahayaList.push('Muntah');
-                if (r.bahayaLemas) bahayaList.push('Lemas/Sempoyongan');
-
-                const makanPagi = r.pagiHabis ? 'Habis' : (r.pagiSisaCheck ? `Sisa (${r.pagiSisaText || '-'})` : '-');
-                const makanMalam = r.malamHabis ? 'Habis' : (r.malamSisaCheck ? `Sisa (${r.malamSisaText || '-'})` : '-');
-
-                let mediaHtml = '';
-                if (r.media && r.media.dataUrl) {
-                    mediaHtml = r.media.type === 'video'
-                        ? `<video src="${r.media.dataUrl}" controls class="mt-2 max-h-44 rounded-lg border border-slate-300"></video>`
-                        : `<img src="${r.media.dataUrl}" alt="Lampiran Hari ${d}" class="mt-2 max-h-44 rounded-lg border border-slate-300 object-contain">`;
-                }
-
-                html += `
-                    <div class="border-2 ${bahayaList.length > 0 ? 'border-red-300 bg-red-50/30' : 'border-slate-200 bg-white'} rounded-xl p-3.5 text-xs space-y-2">
-                        <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
-                            <span class="font-display font-extrabold text-sm text-medNavy">Hari ke-${d} • ${escapeHtml(r.dateLabel || '')}</span>
-                            <span class="text-[11px] text-slate-500">Disimpan pukul ${escapeHtml(r.savedAt || '-')}</span>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mt-2.5">
+                            <div><span class="text-slate-500 block">Obat/Insulin:</span><strong>${l.medName || "-"} (${l.insulinDose || "-"})</strong></div>
+                            <div><span class="text-slate-500 block">Makan Pagi/Mlm:</span><strong>${l.eatMorning} / ${l.eatNight}</strong></div>
+                            <div><span class="text-slate-500 block">Minum & Pipis:</span><strong>${l.water} ml &bull; ${l.pee}x</strong></div>
+                            <div><span class="text-slate-500 block">Feses & Aktivitas:</span><strong>${l.poop} &bull; ${l.activity}</strong></div>
                         </div>
-
-                        ${bahayaList.length > 0 ? `
-                            <div class="bg-red-100 text-red-800 font-bold px-2.5 py-1 rounded-lg text-[11px]">
-                                ⚠️ TANDA BAHAYA: ${escapeHtml(bahayaList.join(', '))}
-                            </div>
-                        ` : ''}
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
-                            <div>• Makan Pagi: <strong>${escapeHtml(makanPagi)}</strong> | Insulin: <strong>${escapeHtml(r.pagiJam || '-')} (${escapeHtml(r.pagiU || '-')} U)</strong></div>
-                            <div>• Makan Malam: <strong>${escapeHtml(makanMalam)}</strong> | Insulin: <strong>${escapeHtml(r.malamJam || '-')} (${escapeHtml(r.malamU || '-')} U)</strong></div>
-                            <div>• Air Minum: <strong>${escapeHtml(r.minum || '0')} ml</strong> | Pipis: <strong>${escapeHtml(r.pipis || '0')}x</strong></div>
-                            <div>• BAB: <strong class="capitalize">${escapeHtml(r.bab || '-')}</strong> | Aktivitas: <strong class="capitalize">${escapeHtml(r.aktivitas || '-')}</strong></div>
-                        </div>
-
-                        ${r.catatan ? `<div class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-700"><strong>Catatan:</strong> ${escapeHtml(r.catatan)}</div>` : ''}
+                        ${l.notes ? `<p class="mt-2 text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200"><strong>Catatan Owner:</strong> ${l.notes}</p>` : ""}
+                        ${dangerHtml}
                         ${mediaHtml}
                     </div>
                 `;
             }
 
-            container.innerHTML = html;
+            if (!hasAnyLog) {
+                logsContainer.innerHTML = `
+                    <div class="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+                        Pemilik kucing belum mengisi laporan harian pada siklus ini.
+                    </div>
+                `;
+            }
+
+            renderVetPatientList();
+            if (shouldScroll) {
+                panel.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
         }
 
-        // ==========================================
-        // QR CODE TAG KALUNG KUCING
-        // ==========================================
-        function buildShareableUrl(acc = null) {
-            const baseUrl = window.location.href.split('?')[0];
-            const params = new URLSearchParams();
-            if (acc) {
-                params.set('pasien', acc.username);
-            } else {
-                params.set('scan', 'patient');
-            }
-            const cloudUrl = getActiveCloudUrl();
-            if (cloudUrl) {
-                params.set('db', cloudUrl);
-            }
-            return `${baseUrl}?${params.toString()}`;
+        function closeVetDetail() {
+            selectedVetPatientUser = null;
+            document.getElementById("vet-detail-panel").classList.add("hidden");
+            renderVetPatientList();
         }
 
-        function generateQrCode(acc = null) {
-            const qrContainer = document.getElementById('qrcode-canvas');
-            if (!qrContainer) return;
-            qrContainer.innerHTML = '';
-            const targetUrl = buildShareableUrl(acc);
+        async function vetControlAction(action) {
+            if (!selectedVetPatientUser) return;
+            const p = store.accounts[selectedVetPatientUser];
+            if (!p) return;
 
-            const captionEl = document.getElementById('qr-tag-caption');
-            const labelEl = document.getElementById('qr-patient-label');
-            if (acc) {
-                if (captionEl) captionEl.textContent = `Scan QR Code tag kalung ini untuk langsung membuka kartu pemantauan ${acc.namaPasien} (Owner: ${acc.namaOwner}) dari HP mana saja.`;
-                if (labelEl) labelEl.textContent = `PASIEN: ${acc.namaPasien.toUpperCase()}`;
+            if (action === "start") {
+                const filled = getFilledDaysCount(p);
+                if (filled >= 7) {
+                    p.cycleWeek = (p.cycleWeek || 1) + 1;
+                    p.logs = {};
+                }
+                p.status = "active";
+                await writeCloudPath(`accounts/${selectedVetPatientUser}`, p);
+                showToast(`Pemantauan untuk ${p.catName} telah DIAKTIFKAN!`);
             } else {
-                if (captionEl) captionEl.textContent = 'Cetak / ukir QR Code ini pada tag kalung kucing agar keluarga di rumah dapat langsung scan dari HP.';
-                if (labelEl) labelEl.textContent = 'CAT DIABETIC CARE';
+                p.status = "stopped";
+                await writeCloudPath(`accounts/${selectedVetPatientUser}/status`, "stopped");
+                showToast(`Pemantauan untuk ${p.catName} DIJEDA sementara.`, "info");
             }
+            renderVetDashboard();
+            openVetPatientDetail(selectedVetPatientUser, false);
+        }
 
-            if (typeof QRCode !== 'undefined') {
-                new QRCode(qrContainer, {
-                    text: targetUrl,
-                    width: 170,
-                    height: 170,
-                    colorDark: '#1e3a5f',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.H
-                });
+        async function saveVetEvaluation(e) {
+            e.preventDefault();
+            if (!selectedVetPatientUser) return;
+            const p = store.accounts[selectedVetPatientUser];
+            if (!p) return;
+
+            const note = document.getElementById("vet-eval-input").value.trim();
+            p.vetNote = note;
+            const ok = await writeCloudPath(`accounts/${selectedVetPatientUser}/vetNote`, note);
+            if (ok) {
+                showToast(`Evaluasi medis terkirim ke HP Owner ${p.catName}!`);
+                renderVetPatientList();
             }
+        }
+
+        // =====================================================================
+        // 5. QR CODE & CLOUD MODAL HELPERS
+        // =====================================================================
+        function getShareableUrl() {
+            const base = window.location.origin + window.location.pathname;
+            const url = new URL(base);
+            const dbUrl = getActiveCloudUrl();
+            if (dbUrl) url.searchParams.set("db", dbUrl);
+            if (currentPatientUser) url.searchParams.set("patient", currentPatientUser);
+            return url.toString();
         }
 
         function openQrModal() {
-            const acc = getCurrentAccount();
-            generateQrCode(acc);
-            document.getElementById('modal-qr').classList.remove('hidden');
+            const modal = document.getElementById("modal-qr");
+            const canvasBox = document.getElementById("qrcode-canvas");
+            canvasBox.innerHTML = "";
+
+            const targetUrl = getShareableUrl();
+            const acc = currentPatientUser ? store.accounts[currentPatientUser] : null;
+            document.getElementById("qr-subtitle").textContent = acc
+                ? `QR Code khusus kalung kucing ${acc.catName} (Owner: ${acc.ownerName}). Scan untuk langsung masuk.`
+                : "Scan QR Code ini dengan kamera HP Android/iOS untuk membuka aplikasi CAT DIABETIC CARE.";
+
+            new QRCode(canvasBox, {
+                text: targetUrl,
+                width: 180,
+                height: 180,
+                colorDark: "#1e3a5f",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            modal.classList.remove("hidden");
             lucide.createIcons();
         }
 
+        function closeQrModal() {
+            document.getElementById("modal-qr").classList.add("hidden");
+        }
+
         function downloadQrImage() {
-            const canvas = document.querySelector('#qrcode-canvas canvas');
-            const img = document.querySelector('#qrcode-canvas img');
-            const acc = getCurrentAccount();
-            const fileName = acc ? `QR-Kalung-${acc.namaPasien}.png` : 'QR-Cat-Diabetic-Care.png';
+            const img = document.querySelector("#qrcode-canvas img");
+            const canvas = document.querySelector("#qrcode-canvas canvas");
+            const dataUrl = img ? img.src : canvas ? canvas.toDataURL("image/png") : null;
+            if (!dataUrl) return;
 
-            let dataUrl = '';
-            if (canvas) {
-                dataUrl = canvas.toDataURL('image/png');
-            } else if (img) {
-                dataUrl = img.src;
-            }
+            const link = document.createElement("a");
+            const acc = currentPatientUser ? store.accounts[currentPatientUser] : null;
+            link.download = acc ? `QR-Kalung-${acc.catName}.png` : "QR-Cat-Diabetic-Care.png";
+            link.href = dataUrl;
+            link.click();
+            showToast("Gambar Barcode berhasil diunduh!");
+        }
 
-            if (!dataUrl) {
-                showToast('QR Code belum siap diunduh.');
+        function copyShareLink() {
+            const link = getShareableUrl();
+            navigator.clipboard.writeText(link).then(() => {
+                showToast("Link akses berhasil disalin!");
+            });
+        }
+
+        function openCloudConfigModal() {
+            document.getElementById("cloud-url-input").value = getActiveCloudUrl();
+            document.getElementById("modal-cloud").classList.remove("hidden");
+        }
+
+        function closeCloudConfigModal() {
+            document.getElementById("modal-cloud").classList.add("hidden");
+        }
+
+        function saveCloudConfig() {
+            const val = document.getElementById("cloud-url-input").value.trim().replace(/\/$/, "");
+            if (!val.startsWith("https://")) {
+                showToast("URL Firebase harus diawali https://", "error");
                 return;
             }
-
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast('Gambar QR Code berhasil disimpan!');
+            localStorage.setItem(CLOUD_URL_KEY, val);
+            closeCloudConfigModal();
+            initFirebaseSync();
+            showToast("Menghubungkan ke Firebase Cloud...", "info");
         }
 
-        function copyPatientLink() {
-            const acc = getCurrentAccount();
-            const targetUrl = buildShareableUrl(acc);
+        // =====================================================================
+        // 6. INISIALISASI SAAT HALAMAN DIBUKA
+        // =====================================================================
+        window.addEventListener("DOMContentLoaded", () => {
+            loadLocalStore();
+            populateDoctorDropdown();
+            initFirebaseSync();
 
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(targetUrl).then(() => {
-                    showToast('Link langsung pasien berhasil disalin!');
-                }).catch(() => fallbackCopyText(targetUrl));
-            } else {
-                fallbackCopyText(targetUrl);
+            // Jika dibuka melalui scan QR Code tag kalung kucing (?patient=...)
+            const params = new URLSearchParams(window.location.search);
+            const patientParam = params.get("patient");
+            if (patientParam) {
+                const uname = patientParam.trim().toLowerCase();
+                setTimeout(() => {
+                    if (store.accounts[uname]) {
+                        currentPatientUser = uname;
+                        selectedDay = getNextUnfilledDay(store.accounts[uname]);
+                        renderPatientView();
+                        navigateTo("patient");
+                    } else {
+                        goToLogin();
+                        document.getElementById("login-username").value = uname;
+                    }
+                }, 600);
             }
-        }
 
-        function fallbackCopyText(text) {
-            const tempInput = document.createElement('input');
-            tempInput.value = text;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
-            showToast('Link langsung pasien berhasil disalin!');
-        }
+            lucide.createIcons();
+        });
     </script>
 </body>
 </html>

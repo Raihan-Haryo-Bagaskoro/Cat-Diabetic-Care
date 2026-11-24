@@ -104,6 +104,21 @@
         .animate-fade-in {
             animation: fadeIn 0.25s ease-out forwards;
         }
+        /* Memastikan modal tampil penuh saat dibuka via JS */
+        .app-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .app-modal-backdrop.is-open {
+            display: flex !important;
+        }
     </style>
 </head>
 <body class="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-blue-200">
@@ -120,7 +135,7 @@
 
                 <!-- Baris Atas: Scan QR Code / Link Web Awal -->
                 <div class="relative z-20 flex justify-center mb-5">
-                    <button type="button" id="btn-open-qr-landing" onclick="openQrModal(event)" class="inline-flex items-center gap-2 text-xs font-bold text-medNavy bg-medBlueLight hover:bg-blue-100 border border-blue-200 px-4 py-2.5 rounded-full shadow-2xs transition active:scale-95 cursor-pointer">
+                    <button type="button" id="btn-open-qr-landing" data-action="open-qr" class="inline-flex items-center gap-2 text-xs font-bold text-medNavy bg-medBlueLight hover:bg-blue-100 border border-blue-200 px-4 py-2.5 rounded-full shadow-2xs transition active:scale-95 cursor-pointer">
                         <i data-lucide="qr-code" class="w-4 h-4 text-blue-700"></i>
                         <span>Scan QR Code / Link Web</span>
                     </button>
@@ -485,7 +500,7 @@
                     </div>
 
                     <div class="flex items-center gap-1.5">
-                        <button type="button" onclick="openQrModal(event)" title="QR Code & Link Web" class="p-2 rounded-lg bg-white border border-slate-300 text-medNavy hover:bg-blue-50 transition cursor-pointer">
+                        <button type="button" data-action="open-qr" title="QR Code & Link Web" class="p-2 rounded-lg bg-white border border-slate-300 text-medNavy hover:bg-blue-50 transition cursor-pointer">
                             <i data-lucide="qr-code" class="w-4 h-4"></i>
                         </button>
                         <button type="button" onclick="logoutPatient(event)" class="text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer">
@@ -1004,37 +1019,37 @@
     <!-- ========================================================= -->
     <!-- MODAL 1: QR CODE & LINK HALAMAN AWAL APLIKASI              -->
     <!-- ========================================================= -->
-    <div id="modal-qr" style="display: none;" onclick="handleBackdropClick('modal-qr', event)" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div onclick="event.stopPropagation()" class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-center space-y-4 relative z-10">
+    <div id="modal-qr" class="app-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-center space-y-4 relative z-10">
             <div class="flex justify-between items-center">
                 <span class="text-xs font-bold uppercase tracking-wider text-medNavy bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
                     <i data-lucide="qr-code" class="w-3.5 h-3.5 text-blue-600"></i> QR Code & Link Web
                 </span>
-                <button type="button" id="btn-close-qr" onclick="closeModal('modal-qr', event)" aria-label="Tutup modal QR" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                <button type="button" id="btn-close-qr" data-close-modal="modal-qr" aria-label="Tutup modal QR" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
 
             <div>
-                <h3 class="font-display font-extrabold text-lg text-medNavy">Akses Halaman Awal Aplikasi</h3>
+                <h3 id="modal-qr-title" class="font-display font-extrabold text-lg text-medNavy">Akses Halaman Awal Aplikasi</h3>
                 <p id="qr-tag-caption" class="text-xs text-slate-500 mt-1">
                     Scan QR Code atau buka link ini untuk langsung membuka halaman pertama aplikasi Cat Diabetic Care di HP mana saja.
                 </p>
             </div>
 
             <div class="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2">
-                <div id="qrcode-canvas" class="bg-white p-2 rounded-xl shadow-xs"></div>
+                <div id="qrcode-canvas" class="bg-white p-2 rounded-xl shadow-xs min-h-[186px] min-w-[186px] flex items-center justify-center"></div>
                 <span id="qr-patient-label" class="text-[11px] font-extrabold text-medNavy uppercase tracking-wide">
                     HALAMAN AWAL • CAT DIABETIC CARE
                 </span>
             </div>
 
             <div class="flex flex-col gap-2">
-                <button type="button" onclick="downloadQrImage()" class="w-full bg-medNavy hover:bg-blue-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
+                <button type="button" id="btn-download-qr" onclick="downloadQrImage()" class="w-full bg-medNavy hover:bg-blue-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
                     <i data-lucide="download" class="w-4 h-4"></i>
                     <span>Simpan Gambar QR Code</span>
                 </button>
-                <button type="button" onclick="copyPatientLink()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <button type="button" id="btn-copy-qr-link" onclick="copyPatientLink()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer">
                     <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                     <span>Salin Link Halaman Awal</span>
                 </button>
@@ -1045,19 +1060,19 @@
     <!-- ========================================================= -->
     <!-- MODAL 2: KONEKSI CLOUD REAL-TIME (FIREBASE)               -->
     <!-- ========================================================= -->
-    <div id="modal-cloud" style="display: none;" onclick="handleBackdropClick('modal-cloud', event)" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div onclick="event.stopPropagation()" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-left space-y-4 relative z-10">
+    <div id="modal-cloud" class="app-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-cloud-title">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-left space-y-4 relative z-10">
             <div class="flex justify-between items-center">
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
                     <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Sinkronisasi Lintas Perangkat
                 </span>
-                <button type="button" id="btn-close-cloud" onclick="closeModal('modal-cloud', event)" aria-label="Tutup modal Cloud" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                <button type="button" id="btn-close-cloud" data-close-modal="modal-cloud" aria-label="Tutup modal Cloud" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
 
             <div>
-                <h3 class="font-display font-extrabold text-lg text-medNavy">Hubungkan Database Cloud (Firebase)</h3>
+                <h3 id="modal-cloud-title" class="font-display font-extrabold text-lg text-medNavy">Hubungkan Database Cloud (Firebase)</h3>
                 <p class="text-xs text-slate-600 mt-1 leading-relaxed">
                     Agar akun dokter, akun pasien, dan laporan harian bisa dibuka di HP maupun laptop lain secara <strong>real-time</strong>, tempelkan URL <strong>Firebase Realtime Database</strong> Anda di bawah ini:
                 </p>
@@ -1440,8 +1455,11 @@
             const modal = document.getElementById('modal-cloud');
             if (modal) {
                 modal.classList.remove('hidden');
+                modal.classList.add('is-open');
                 modal.style.display = 'flex';
             }
+            refreshIconsSafe();
+        }
             if (typeof lucide !== 'undefined' && lucide.createIcons) {
                 lucide.createIcons();
             }
@@ -1469,12 +1487,58 @@
         }
 
         // ==========================================
-        // INITIALIZATION
+        // INITIALIZATION & EVENT DELEGATION
         // ==========================================
-        document.addEventListener('DOMContentLoaded', () => {
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
+        function refreshIconsSafe() {
+            try {
+                if (typeof lucide !== 'undefined' && lucide && typeof lucide.createIcons === 'function') {
+                    lucide.createIcons();
+                }
+            } catch (e) {
+                console.warn('Lucide icon warning:', e);
             }
+        }
+
+        function bindDelegatedInteractions() {
+            // Event delegation agar tombol tetap responsif meski DOM / ikon di-render ulang
+            document.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!target || typeof target.closest !== 'function') return;
+
+                const openQrBtn = target.closest('[data-action="open-qr"], #btn-open-qr-landing');
+                if (openQrBtn) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openQrModal(event);
+                    return;
+                }
+
+                const closeBtn = target.closest('[data-close-modal]');
+                if (closeBtn) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const targetModalId = closeBtn.getAttribute('data-close-modal');
+                    if (targetModalId) closeModal(targetModalId, event);
+                    return;
+                }
+
+                if (target.classList && target.classList.contains('app-modal-backdrop')) {
+                    const modalId = target.id;
+                    if (modalId) closeModal(modalId, event);
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeModal('modal-qr');
+                    closeModal('modal-cloud');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            bindDelegatedInteractions();
+            refreshIconsSafe();
             loadStateFromStorage();
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -1534,9 +1598,7 @@
             const target = document.getElementById(`view-${viewName}`);
             if (target) target.classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
+            refreshIconsSafe();
         }
 
         function closeModal(modalId, event) {
@@ -1547,6 +1609,7 @@
             const el = document.getElementById(modalId);
             if (el) {
                 el.classList.add('hidden');
+                el.classList.remove('is-open');
                 el.style.display = 'none';
             }
         }
@@ -2667,7 +2730,8 @@
                     : 'HALAMAN AWAL • CAT DIABETIC CARE';
             }
 
-            if (typeof QRCode !== 'undefined') {
+            let rendered = false;
+            if (typeof QRCode !== 'undefined' && typeof QRCode === 'function') {
                 try {
                     new QRCode(qrContainer, {
                         text: targetUrl,
@@ -2677,9 +2741,44 @@
                         colorLight: '#ffffff',
                         correctLevel: QRCode.CorrectLevel.H
                     });
+                    rendered = true;
                 } catch (err) {
-                    console.warn('QR render error:', err);
+                    console.warn('QRCode.js fallback:', err);
                 }
+            }
+
+            // Fallback QR API jika skrip QRCode.js gagal dimuat atau diblokir jaringan
+            if (!rendered) {
+                const fallbackImg = document.createElement('img');
+                fallbackImg.alt = 'QR Code Cat Diabetic Care';
+                fallbackImg.width = 170;
+                fallbackImg.height = 170;
+                fallbackImg.className = 'rounded-lg block';
+                fallbackImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&color=1e3a5f&bgcolor=ffffff&data=${encodeURIComponent(targetUrl)}`;
+                qrContainer.appendChild(fallbackImg);
+            }
+        }
+
+        function openQrModal(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            try {
+                const acc = typeof getCurrentAccount === 'function' ? getCurrentAccount() : null;
+                generateQrCode(acc);
+            } catch (e) {
+                generateQrCode(null);
+            }
+            const modal = document.getElementById('modal-qr');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('is-open');
+                modal.style.display = 'flex';
+                modal.style.pointerEvents = 'auto';
+            }
+            refreshIconsSafe();
+        }
             }
         }
 

@@ -1132,6 +1132,8 @@
         let isCloudConnected = false;
         let currentUploadedMedia = null;
         let isUserEditingForm = false;
+        // Menandakan sesi aktif hanya berlaku selama tab/halaman berjalan setelah login/daftar eksplisit
+        let isSessionAuthenticated = false;
 
         let appState = {
             currentUsername: null,
@@ -1263,7 +1265,14 @@
 
         function saveStateToStorage(syncCloud = true) {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+                // Jangan simpan sesi login aktif ke localStorage agar buka/refresh halaman selalu mulai dari halaman awal
+                const payloadToSave = {
+                    ...appState,
+                    currentUsername: null,
+                    currentDoctorUsername: null,
+                    selectedVetUsername: null
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadToSave));
                 if (syncCloud) {
                     pushDataToCloud();
                 }
@@ -1335,18 +1344,24 @@
             appState.doctors = mergedDoctors;
             appState.accounts = mergedAccounts;
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+                const payloadToSave = {
+                    ...appState,
+                    currentUsername: null,
+                    currentDoctorUsername: null,
+                    selectedVetUsername: null
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadToSave));
             } catch (e) {}
 
             populateDoctorSelectOptions();
 
             if (!isUserEditingForm) {
-                if (!document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
+                if (isSessionAuthenticated && !document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
                     const acc = getCurrentAccount();
                     renderPatientVetFeedback(acc);
                     renderDayPills();
                 }
-                if (!document.getElementById('view-vet').classList.contains('hidden') && getCurrentDoctor()) {
+                if (isSessionAuthenticated && !document.getElementById('view-vet').classList.contains('hidden') && getCurrentDoctor()) {
                     if (appState.selectedVetUsername) {
                         openVetPatientDetail(appState.selectedVetUsername);
                     } else {
@@ -1561,19 +1576,12 @@
             populateDoctorSelectOptions();
             generateQrCode();
 
-            if (!hasExplicitLogoutFlag()) {
-                if (getCurrentAccount()) {
-                    enterPatientCard();
-                } else if (getCurrentDoctor()) {
-                    enterVetPortal();
-                } else {
-                    navigateTo('landing');
-                }
-            } else {
-                appState.currentUsername = null;
-                appState.currentDoctorUsername = null;
-                navigateTo('landing');
-            }
+            // Selalu mulai dari halaman awal (landing) dan bersihkan sisa sesi lama agar wajib melewati login
+            isSessionAuthenticated = false;
+            appState.currentUsername = null;
+            appState.currentDoctorUsername = null;
+            appState.selectedVetUsername = null;
+            navigateTo('landing');
 
             document.querySelectorAll('input, textarea, select').forEach(el => {
                 el.addEventListener('focus', () => { isUserEditingForm = true; });
@@ -1638,7 +1646,7 @@
         // AUTENTIKASI PASIEN
         // ==========================================
         function getCurrentAccount() {
-            if (!appState.currentUsername) return null;
+            if (!isSessionAuthenticated || !appState.currentUsername) return null;
             return appState.accounts[appState.currentUsername] || null;
         }
 
@@ -1647,7 +1655,13 @@
                 event.preventDefault();
                 event.stopPropagation();
             }
+            isSessionAuthenticated = false;
+            appState.currentUsername = null;
             setExplicitLogoutFlag(false);
+            const loginUserInput = document.getElementById('login-username');
+            const loginPassInput = document.getElementById('login-password');
+            if (loginUserInput) loginUserInput.value = '';
+            if (loginPassInput) loginPassInput.value = '';
             populateDoctorSelectOptions();
             switchAuthTab('login');
             navigateTo('login', event);
@@ -1712,6 +1726,7 @@
             }
 
             setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
             appState.currentUsername = username;
             saveStateToStorage();
             enterPatientCard();
@@ -1758,6 +1773,7 @@
             };
 
             setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
             appState.currentUsername = username;
             saveStateToStorage();
             showToast(`Akun ${namaPasien} berhasil dibuat!`);
@@ -1770,6 +1786,7 @@
                 event.stopPropagation();
             }
             setExplicitLogoutFlag(true);
+            isSessionAuthenticated = false;
             appState.currentUsername = null;
             saveStateToStorage(false);
             navigateTo('landing', event);
@@ -1780,7 +1797,7 @@
         // AUTENTIKASI DOKTER HEWAN
         // ==========================================
         function getCurrentDoctor() {
-            if (!appState.currentDoctorUsername) return null;
+            if (!isSessionAuthenticated || !appState.currentDoctorUsername) return null;
             return appState.doctors[appState.currentDoctorUsername] || null;
         }
 
@@ -1790,9 +1807,11 @@
                 event.stopPropagation();
             }
             setExplicitLogoutFlag(false);
-            if (getCurrentDoctor()) {
+            if (isSessionAuthenticated && getCurrentDoctor()) {
                 enterVetPortal();
             } else {
+                isSessionAuthenticated = false;
+                appState.currentDoctorUsername = null;
                 switchVetAuthTab('login');
                 navigateTo('vet-auth', event);
             }
@@ -1841,6 +1860,7 @@
             }
 
             setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
             appState.currentDoctorUsername = username;
             saveStateToStorage();
             enterVetPortal();
@@ -1866,6 +1886,7 @@
             };
 
             setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
             appState.currentDoctorUsername = username;
             saveStateToStorage();
             populateDoctorSelectOptions();
@@ -1879,6 +1900,7 @@
                 event.stopPropagation();
             }
             setExplicitLogoutFlag(true);
+            isSessionAuthenticated = false;
             appState.currentDoctorUsername = null;
             appState.selectedVetUsername = null;
             saveStateToStorage(false);

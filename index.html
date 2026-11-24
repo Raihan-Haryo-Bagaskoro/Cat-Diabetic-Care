@@ -1460,10 +1460,6 @@
             }
             refreshIconsSafe();
         }
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
-        }
 
         function saveCloudConfig(e) {
             e.preventDefault();
@@ -2778,30 +2774,6 @@
                 modal.style.pointerEvents = 'auto';
             }
             refreshIconsSafe();
-        }
-            }
-        }
-
-        function openQrModal(event) {
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            try {
-                const acc = typeof getCurrentAccount === 'function' ? getCurrentAccount() : null;
-                generateQrCode(acc);
-            } catch (e) {
-                generateQrCode(null);
-            }
-            const modal = document.getElementById('modal-qr');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.style.display = 'flex';
-                modal.style.pointerEvents = 'auto';
-            }
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
         }
 
         function downloadQrImage() {

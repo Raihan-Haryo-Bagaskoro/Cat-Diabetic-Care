@@ -494,10 +494,10 @@
                     <div class="border-2 border-slate-400 rounded-2xl p-3.5 sm:p-4 bg-white space-y-2.5">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5 text-xs sm:text-sm">
                             <div class="space-y-2.5">
-                                <div class="flex items-center gap-1.5">
-                                    <label for="id-nama-pasien" class="font-semibold text-slate-700 shrink-0">Nama pasien :</label>
-                                    <input type="text" id="id-nama-pasien" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
-                                </div>
+                        <div class="flex items-center gap-1.5">
+                            <label for="id-minggu-ke" class="font-semibold text-slate-700 shrink-0">Minggu ke- :</label>
+                            <input type="text" id="id-minggu-ke" oninput="savePatientTherapyFields()" class="underline-input w-full font-extrabold text-medNavy" placeholder="cth: 1">
+                        </div>
                                 <div class="flex items-center gap-1.5">
                                     <label for="id-nama-owner" class="font-semibold text-slate-700 shrink-0">Nama owner :</label>
                                     <input type="text" id="id-nama-owner" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
@@ -539,6 +539,12 @@
                         <p class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
                             Sesuai alur terapi setelah diagnosa dan resep insulin dari dokter, formulir harian akan otomatis terbuka mulai keesokan harinya (<strong id="waiting-start-date">Besok</strong>).
                         </p>
+                        <div class="pt-1">
+                            <button type="button" onclick="activateMonitoringToday()" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-sm transition active:scale-95">
+                                <i data-lucide="play-circle" class="w-4 h-4"></i>
+                                <span>Mulai Isi Formulir Hari Ini</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- STATE B: KONTROL SEMINGGU SELESAI / DIHENTIKAN DOKTER -->
@@ -1655,6 +1661,22 @@
             }
 
             return { mode: 'active', activeDay: diff + 1, startIso };
+        }
+
+        function activateMonitoringToday() {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+            const todayIso = getTodayIso();
+            acc.cycleStartDateIso = todayIso;
+            acc.jadwalKontrol = formatIndoDateFromIso(addDaysIso(todayIso, 7));
+            acc.selectedDay = 1;
+            acc.viewingHistoryWhilePaused = false;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            pushSpecificCloudPath(`accounts/${acc.username}/cycleStartDateIso`, todayIso);
+            pushSpecificCloudPath(`accounts/${acc.username}/jadwalKontrol`, acc.jadwalKontrol);
+            renderDayPills();
+            updatePatientScreenState();
+            showToast('Formulir pemantauan Hari ke-1 sudah diaktifkan untuk hari ini!');
         }
 
         function enterPatientCard() {

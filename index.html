@@ -410,12 +410,10 @@
         <section id="view-patient" class="hidden w-full max-w-2xl animate-fade-in my-2">
             <!-- Top Bar Aksi Pasien -->
             <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <div class="flex items-center gap-2">
-                    <span id="patient-cloud-pill" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>Cloud Sinkron</span>
-                    </span>
-                </div>
+                <span id="patient-cloud-pill" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Cloud Sinkron</span>
+                </span>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="openQrModal()" class="inline-flex items-center gap-1.5 text-xs font-bold text-medNavy bg-white hover:bg-medBlueLight border-2 border-medNavy px-3 py-1.5 rounded-xl shadow-2xs transition">
                         <i data-lucide="qr-code" class="w-4 h-4 text-blue-700"></i>
@@ -433,15 +431,18 @@
                 <!-- Header Kartu -->
                 <div class="bg-medBlueLight border-b-2 border-medNavy px-5 py-4 flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-11 h-11 rounded-2xl bg-white border-2 border-medNavy flex items-center justify-center shrink-0">
-                            <i data-lucide="cat" class="w-6 h-6 text-medNavy"></i>
-                        </div>
+                        <svg viewBox="0 0 180 140" class="w-11 h-10 shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M44 54 L34 16 L68 38 C75 36 82 35 90 35 C98 35 105 36 112 38 L146 16 L136 54 C143 64 146 75 146 86 C146 114 121 130 90 130 C59 130 34 114 34 86 C34 75 37 64 44 54 Z" fill="#ffffff" stroke="#1e3a5f" stroke-width="6" stroke-linejoin="round"/>
+                            <path d="M60 73 Q68 63 76 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M104 73 Q112 63 120 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M77 95 Q83.5 103 90 94 Q96.5 103 103 95" stroke="#1e3a5f" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                        </svg>
                         <div>
                             <h2 class="font-display font-extrabold text-base sm:text-lg text-medNavy uppercase tracking-wide leading-tight">
                                 CAT DIABETIC CARE
                             </h2>
                             <p class="text-[11px] sm:text-xs font-semibold text-slate-600">
-                                Kartu Pemantauan Harian Pasien (Siklus 7 Hari)
+                                Kartu Pemantauan Harian Terapi Diabetes Kucing
                             </p>
                         </div>
                     </div>
@@ -451,141 +452,145 @@
                 </div>
 
                 <!-- Identitas Pasien -->
-                <div class="p-5 sm:p-6 bg-slate-50/70 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-slate-500 w-24 shrink-0">Nama Pasien:</span>
-                        <span id="disp-nama-pasien" class="font-extrabold text-medNavy">-</span>
+                <div class="p-5 sm:p-6 bg-slate-50/70 border-b-2 border-slate-200 space-y-2.5 text-xs sm:text-sm">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-bold text-medNavy shrink-0">Nama Pasien :</span>
+                            <span id="disp-nama-pasien" class="underline-input flex-grow font-extrabold text-slate-900">-</span>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-bold text-medNavy shrink-0">Nama Owner :</span>
+                            <span id="disp-nama-owner" class="underline-input flex-grow font-bold text-slate-800">-</span>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-slate-500 w-24 shrink-0">Nama Owner:</span>
-                        <span id="disp-nama-owner" class="font-bold text-slate-800">-</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-slate-500 w-24 shrink-0">Usia Kucing:</span>
-                        <span id="disp-usia" class="font-bold text-slate-800">-</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-slate-500 w-24 shrink-0">Dokter Hewan:</span>
-                        <span id="disp-dokter" class="font-bold text-blue-800">-</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-bold text-medNavy shrink-0">Usia Kucing :</span>
+                            <span id="disp-usia" class="underline-input flex-grow font-bold text-slate-800">-</span>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-bold text-medNavy shrink-0">Dokter Hewan :</span>
+                            <span id="disp-dokter" class="underline-input flex-grow font-bold text-blue-800">-</span>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Banner Evaluasi / Instruksi Dokter -->
-                <div id="patient-vet-note-box" class="mx-5 sm:mx-6 mt-5 bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+                <div id="patient-vet-note-box" class="mx-5 sm:mx-6 mt-5 bg-medBlueLight border-2 border-blue-200 rounded-2xl p-4">
                     <div class="flex items-center gap-2 text-xs font-extrabold text-medNavy uppercase tracking-wider mb-1">
                         <i data-lucide="stethoscope" class="w-4 h-4 text-blue-700"></i>
-                        <span>Arahan & Evaluasi Dokter Penanggung Jawab</span>
+                        <span>Catatan Evaluasi Dokter</span>
                     </div>
                     <p id="patient-vet-note-text" class="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed">
                         Belum ada catatan khusus. Lakukan pemantauan rutin sesuai jadwal terapi.
                     </p>
                 </div>
 
-                <!-- Status Banner (Menunggu H+1 / Hari Kontrol / Dihentikan Dokter) -->
+                <!-- Status Banner (Hari Kontrol / Dihentikan Dokter) -->
                 <div id="patient-status-banner" class="hidden mx-5 sm:mx-6 mt-4 rounded-2xl p-4 border-2"></div>
 
                 <!-- Navigasi Tab Hari 1 - Hari 7 -->
                 <div class="px-5 sm:px-6 pt-5">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-extrabold text-medNavy uppercase tracking-wider">Pilih Hari Pemantauan:</span>
+                        <span class="text-xs font-extrabold text-medNavy uppercase tracking-wider">Pilih Hari Pemantauan (H1–H7):</span>
                         <span id="patient-progress-text" class="text-xs font-bold text-emerald-700">0 / 7 Hari Terisi</span>
                     </div>
                     <div id="day-tabs-container" class="grid grid-cols-7 gap-1.5 sm:gap-2"></div>
                 </div>
 
-                <!-- FORMULIR HARIAN -->
+                <!-- FORMULIR HARIAN (GAYA KARTU KLINIS ASLI) -->
                 <form id="form-daily-log" onsubmit="saveDailyLog(event)" class="p-5 sm:p-6 space-y-5">
-                    <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                    <!-- Header Hari & Tanggal -->
+                    <div class="bg-medHeaderGray/70 border border-slate-300 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                         <div>
-                            <h3 id="form-day-title" class="font-display font-extrabold text-base sm:text-lg text-medNavy">
+                            <h3 id="form-day-title" class="font-display font-extrabold text-base text-medNavy">
                                 Laporan Hari ke-1
                             </h3>
-                            <p id="form-day-subtitle" class="text-xs text-slate-500">Isi kondisi kucing Anda hari ini dengan lengkap</p>
+                            <p id="form-day-subtitle" class="text-[11px] text-slate-600">Lengkapi checklist harian kondisi kucing</p>
                         </div>
                         <div class="flex items-center gap-2">
-                            <label for="log-date" class="text-xs font-bold text-slate-600">Tanggal:</label>
-                            <input type="date" id="log-date" required class="rounded-xl border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-medNavy bg-slate-50 focus:outline-none focus:border-medNavy">
+                            <label for="log-date" class="text-xs font-bold text-medNavy">Tanggal :</label>
+                            <input type="date" id="log-date" required class="underline-input text-xs font-bold text-medNavy bg-white/80 rounded-lg">
                         </div>
                     </div>
 
-                    <!-- 1. Terapi Obat & Insulin -->
-                    <div class="bg-medBlueLight/50 border border-blue-200 rounded-2xl p-4 space-y-3">
-                        <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-medNavy">
-                            <i data-lucide="syringe" class="w-4 h-4 text-blue-700"></i>
-                            <span>1. Pemberian Obat & Terapi Insulin</span>
+                    <!-- Bagian A: Pemberian Obat / Insulin -->
+                    <div class="border-2 border-slate-200 rounded-2xl overflow-hidden">
+                        <div class="bg-medBlueLight px-4 py-2 border-b border-slate-200 font-extrabold text-xs sm:text-sm text-medNavy">
+                            A. Pemberian Terapi Obat / Insulin
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                            <div>
-                                <label class="block font-bold text-slate-600 mb-1">Nama Obat / Insulin</label>
-                                <input type="text" id="log-med-name" placeholder="cth: Lantus / Metronidazole" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                        <div class="p-4 space-y-3 text-xs sm:text-sm">
+                            <div class="flex flex-wrap items-baseline gap-2">
+                                <label for="log-med-name" class="font-bold text-slate-700 shrink-0">Nama Obat / Insulin :</label>
+                                <input type="text" id="log-med-name" placeholder="cth: Lantus / Metronidazole" class="underline-input flex-grow font-semibold text-medNavy">
                             </div>
-                            <div>
-                                <label class="block font-bold text-slate-600 mb-1">Jam Pemberian</label>
-                                <input type="time" id="log-insulin-time" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
-                            </div>
-                            <div>
-                                <label class="block font-bold text-slate-600 mb-1">Dosis (Unit / ml / tab)</label>
-                                <input type="text" id="log-insulin-dose" placeholder="cth: 1.5 U" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 2. Nafsu Makan Pagi & Malam -->
-                    <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
-                        <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-medNavy">
-                            <i data-lucide="utensils" class="w-4 h-4 text-blue-700"></i>
-                            <span>2. Nafsu Makan (Pagi & Malam)</span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                <span class="block font-bold text-medNavy mb-2">Makan Pagi:</span>
-                                <div class="flex flex-wrap gap-3">
-                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
-                                        <input type="radio" name="eat-morning" value="Habis" class="accent-medNavy"> Habis
-                                    </label>
-                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
-                                        <input type="radio" name="eat-morning" value="Sisa Sedikit" class="accent-medNavy"> Sisa Sedikit
-                                    </label>
-                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-red-700">
-                                        <input type="radio" name="eat-morning" value="Tidak Mau Makan" class="accent-red-600"> Tidak Mau Makan
-                                    </label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="flex items-baseline gap-2">
+                                    <label for="log-insulin-time" class="font-bold text-slate-700 shrink-0">Jam Pemberian :</label>
+                                    <input type="time" id="log-insulin-time" class="underline-input flex-grow font-semibold text-medNavy">
                                 </div>
-                            </div>
-                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                <span class="block font-bold text-medNavy mb-2">Makan Malam:</span>
-                                <div class="flex flex-wrap gap-3">
-                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
-                                        <input type="radio" name="eat-night" value="Habis" class="accent-medNavy"> Habis
-                                    </label>
-                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
-                                        <input type="radio" name="eat-night" value="Sisa Sedikit" class="accent-medNavy"> Sisa Sedikit
-                                    </label>
-                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-red-700">
-                                        <input type="radio" name="eat-night" value="Tidak Mau Makan" class="accent-red-600"> Tidak Mau Makan
-                                    </label>
+                                <div class="flex items-baseline gap-2">
+                                    <label for="log-insulin-dose" class="font-bold text-slate-700 shrink-0">Dosis (Unit/ml) :</label>
+                                    <input type="text" id="log-insulin-dose" placeholder="cth: 1.5 U" class="underline-input flex-grow font-semibold text-medNavy">
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 3. Konsumsi Air Minum, Pipis, BAB & Aktivitas -->
-                    <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
-                        <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-medNavy">
-                            <i data-lucide="droplets" class="w-4 h-4 text-blue-700"></i>
-                            <span>3. Minum, Pipis, Feses & Aktivitas</span>
+                    <!-- Bagian B: Nafsu Makan Pagi & Malam -->
+                    <div class="border-2 border-slate-200 rounded-2xl overflow-hidden">
+                        <div class="bg-medBlueLight px-4 py-2 border-b border-slate-200 font-extrabold text-xs sm:text-sm text-medNavy">
+                            B. Pemantauan Nafsu Makan
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                            <div>
-                                <label class="block font-bold text-slate-600 mb-1">Total Air Minum (ml / hari)</label>
-                                <input type="number" id="log-water" min="0" placeholder="cth: 180" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                        <div class="p-4 space-y-3 text-xs sm:text-sm">
+                            <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                                <span class="font-bold text-medNavy">Makan Pagi :</span>
+                                <div class="flex flex-wrap gap-3">
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-morning" value="Habis" class="med-checkbox rounded-full"> <span>Habis</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-morning" value="Sisa Sedikit" class="med-checkbox rounded-full"> <span>Sisa Sedikit</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-red-700">
+                                        <input type="radio" name="eat-morning" value="Tidak Mau Makan" class="med-checkbox danger-checkbox rounded-full"> <span>Tidak Mau Makan</span>
+                                    </label>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block font-bold text-slate-600 mb-1">Frekuensi Pipis (kali / hari)</label>
-                                <input type="number" id="log-pee" min="0" placeholder="cth: 3" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold focus:outline-none focus:border-medNavy">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="font-bold text-medNavy">Makan Malam :</span>
+                                <div class="flex flex-wrap gap-3">
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-night" value="Habis" class="med-checkbox rounded-full"> <span>Habis</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold">
+                                        <input type="radio" name="eat-night" value="Sisa Sedikit" class="med-checkbox rounded-full"> <span>Sisa Sedikit</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-red-700">
+                                        <input type="radio" name="eat-night" value="Tidak Mau Makan" class="med-checkbox danger-checkbox rounded-full"> <span>Tidak Mau Makan</span>
+                                    </label>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block font-bold text-slate-600 mb-1">Kondisi Feses (BAB)</label>
-                                <select id="log-poop" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold bg-white focus:outline-none focus:border-medNavy">
+                        </div>
+                    </div>
+
+                    <!-- Bagian C: Minum, Pipis, Kondisi BAB & Aktivitas -->
+                    <div class="border-2 border-slate-200 rounded-2xl overflow-hidden">
+                        <div class="bg-medBlueLight px-4 py-2 border-b border-slate-200 font-extrabold text-xs sm:text-sm text-medNavy">
+                            C. Minum, Pipis, Kondisi Feses & Aktivitas
+                        </div>
+                        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs sm:text-sm">
+                            <div class="flex items-baseline gap-2">
+                                <label for="log-water" class="font-bold text-slate-700 shrink-0">Air Minum (ml) :</label>
+                                <input type="number" id="log-water" min="0" placeholder="cth: 180" class="underline-input w-full font-semibold text-medNavy">
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <label for="log-pee" class="font-bold text-slate-700 shrink-0">Frekuensi Pipis :</label>
+                                <input type="number" id="log-pee" min="0" placeholder="kali/hari" class="underline-input w-full font-semibold text-medNavy">
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <label for="log-poop" class="font-bold text-slate-700 shrink-0">Kondisi BAB :</label>
+                                <select id="log-poop" class="underline-input w-full font-semibold text-medNavy bg-transparent">
                                     <option value="Normal (Padat)">Normal (Padat)</option>
                                     <option value="Lembek">Lembek</option>
                                     <option value="Diare / Cair">Diare / Cair</option>
@@ -593,9 +598,9 @@
                                     <option value="Berdarah (Darurat)">Berdarah (Darurat)</option>
                                 </select>
                             </div>
-                            <div>
-                                <label class="block font-bold text-slate-600 mb-1">Tingkat Aktivitas Kucing</label>
-                                <select id="log-activity" class="w-full rounded-xl border border-slate-300 px-3 py-2 font-semibold bg-white focus:outline-none focus:border-medNavy">
+                            <div class="flex items-baseline gap-2">
+                                <label for="log-activity" class="font-bold text-slate-700 shrink-0">Aktivitas :</label>
+                                <select id="log-activity" class="underline-input w-full font-semibold text-medNavy bg-transparent">
                                     <option value="Aktif & Responsif">Aktif & Responsif</option>
                                     <option value="Cukup Aktif">Cukup Aktif</option>
                                     <option value="Lemas / Banyak Tidur">Lemas / Banyak Tidur</option>
@@ -605,13 +610,13 @@
                         </div>
                     </div>
 
-                    <!-- 4. Indikator Tanda Bahaya -->
+                    <!-- Bagian D: Indikator Tanda Bahaya -->
                     <div class="bg-dangerBg border-2 border-dangerBorder rounded-2xl p-4 space-y-2.5">
                         <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-dangerText">
                             <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                            <span>4. Checklist Tanda Bahaya (Centang Jika Muncul)</span>
+                            <span>D. Indikator Tanda Bahaya (Centang Jika Terjadi)</span>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-red-900">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-semibold text-red-900">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" value="Muntah berulang" class="med-checkbox danger-checkbox danger-item">
                                 <span>Muntah berulang</span>
@@ -631,17 +636,17 @@
                         </div>
                     </div>
 
-                    <!-- 5. Catatan Tambahan & Lampiran Media -->
-                    <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
+                    <!-- Bagian E: Catatan & Lampiran Media -->
+                    <div class="border-2 border-slate-200 rounded-2xl p-4 space-y-3">
                         <label for="log-notes" class="block font-extrabold text-xs sm:text-sm text-medNavy">
-                            5. Catatan Owner & Lampiran Foto Kondisi Klinis
+                            E. Catatan Harian Owner & Lampiran Foto Kondisi Klinis :
                         </label>
-                        <textarea id="log-notes" rows="2" placeholder="Tuliskan keluhan atau perkembangan kucing hari ini..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy"></textarea>
+                        <input type="text" id="log-notes" placeholder="Tuliskan catatan kondisi kucing hari ini..." class="underline-input w-full text-xs sm:text-sm font-medium text-slate-800">
                         
-                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
                             <label class="inline-flex items-center gap-2 text-xs font-bold text-medNavy bg-medBlueLight hover:bg-blue-100 border border-blue-200 px-3.5 py-2 rounded-xl cursor-pointer transition">
                                 <i data-lucide="camera" class="w-4 h-4 text-blue-700"></i>
-                                <span>Lampirkan Foto Kondisi (Opsional)</span>
+                                <span>Lampirkan Foto / Bukti Kondisi</span>
                                 <input type="file" id="log-media" accept="image/*" onchange="handleMediaUpload(event)" class="hidden">
                             </label>
                             <span id="media-status-text" class="text-[11px] text-slate-500 font-medium">Belum ada foto dilampirkan</span>
@@ -650,10 +655,10 @@
                     </div>
 
                     <!-- Tombol Simpan -->
-                    <div class="pt-1 flex items-center justify-end gap-3">
+                    <div class="pt-1 flex items-center justify-end">
                         <button type="submit" id="btn-save-log" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-extrabold text-sm px-7 py-3.5 rounded-2xl shadow-lg hover:shadow-xl transition active:scale-[0.98]">
-                            <i data-lucide="save" class="w-4 h-4"></i>
-                            <span>Simpan & Kirim Laporan ke Dokter</span>
+                            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                            <span>Simpan Laporan Hari Ini</span>
                         </button>
                     </div>
                 </form>

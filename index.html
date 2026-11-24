@@ -2064,6 +2064,45 @@
             }
         }
 
+        // Renders the latest veterinarian evaluation feedback card on the patient view
+        function renderPatientVetFeedback(acc) {
+            const box = document.getElementById('patient-vet-feedback-box');
+            if (!box || !acc) return;
+
+            const evals = Array.isArray(acc.vetEvaluations)
+                ? acc.vetEvaluations
+                : (acc.vetEvaluations ? Object.values(acc.vetEvaluations) : []);
+
+            if (evals.length === 0) {
+                box.classList.add('hidden');
+                return;
+            }
+
+            const latest = evals[0];
+            box.classList.remove('hidden');
+
+            const commentEl = document.getElementById('patient-vet-comment-text');
+            const authorEl = document.getElementById('patient-vet-author');
+            const timeEl = document.getElementById('patient-vet-time');
+            const badgeEl = document.getElementById('patient-vet-status-badge');
+
+            if (commentEl) commentEl.textContent = latest.comment || '-';
+            if (authorEl) authorEl.textContent = latest.doctorName || 'Dokter Hewan';
+            if (timeEl) timeEl.textContent = latest.timestamp || 'Baru saja';
+
+            if (badgeEl) {
+                const statusText = latest.status || 'Lanjutkan Terapi';
+                badgeEl.textContent = statusText;
+                if (statusText === 'Segera Bawa ke Klinik') {
+                    badgeEl.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300';
+                } else if (statusText === 'Sesuaikan Dosis') {
+                    badgeEl.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+                } else {
+                    badgeEl.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+                }
+            }
+        }
+
         // ==========================================
         // PORTAL DOKTER HEWAN (TERISOLASI PER DOKTER)
         // ==========================================
@@ -2369,11 +2408,14 @@
 
         function renderVetDailyRecap(acc) {
             const container = document.getElementById('vet-daily-recap-list');
+            if (!container || !acc) return;
+
+            const rawRecords = acc.records || {};
             let html = '';
 
             for (let d = 1; d <= 7; d++) {
-                const r = acc.records && acc.records[d];
-                if (!r) {
+                const r = rawRecords[d] || rawRecords[String(d)] || (Array.isArray(rawRecords) ? rawRecords[d] : null);
+                if (!r || typeof r !== 'object') {
                     html += `
                         <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/60 flex items-center justify-between text-xs text-slate-400">
                             <span class="font-bold">Hari ke-${d}</span>
@@ -2394,8 +2436,8 @@
                 let mediaHtml = '';
                 if (r.media && r.media.dataUrl) {
                     mediaHtml = r.media.type === 'video'
-                        ? `<video src="${r.media.dataUrl}" controls class="mt-2 max-h-44 rounded-lg border border-slate-300"></video>`
-                        : `<img src="${r.media.dataUrl}" alt="Lampiran Hari ${d}" class="mt-2 max-h-44 rounded-lg border border-slate-300 object-contain">`;
+                        ? `<video src="${escapeHtml(r.media.dataUrl)}" controls class="mt-2 max-h-44 rounded-lg border border-slate-300"></video>`
+                        : `<img src="${escapeHtml(r.media.dataUrl)}" alt="Lampiran Hari ${d}" class="mt-2 max-h-44 rounded-lg border border-slate-300 object-contain">`;
                 }
 
                 html += `
@@ -2413,7 +2455,7 @@
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
                             <div>• Makan Pagi: <strong>${escapeHtml(makanPagi)}</strong> | Insulin: <strong>${escapeHtml(r.pagiJam || '-')} (${escapeHtml(r.pagiU || '-')} U)</strong></div>
-                            <div>• Makan Malam: <strong>${escapeHtml(malamMalam)}</strong> | Insulin: <strong>${escapeHtml(r.malamJam || '-')} (${escapeHtml(r.malamU || '-')} U)</strong></div>
+                            <div>• Makan Malam: <strong>${escapeHtml(makanMalam)}</strong> | Insulin: <strong>${escapeHtml(r.malamJam || '-')} (${escapeHtml(r.malamU || '-')} U)</strong></div>
                             <div>• Air Minum: <strong>${escapeHtml(r.minum || '0')} ml</strong> | Pipis: <strong>${escapeHtml(r.pipis || '0')}x</strong></div>
                             <div>• BAB: <strong class="capitalize">${escapeHtml(r.bab || '-')}</strong> | Aktivitas: <strong class="capitalize">${escapeHtml(r.aktivitas || '-')}</strong></div>
                         </div>

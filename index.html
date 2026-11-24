@@ -482,9 +482,9 @@
                         <button type="button" onclick="openQrModal()" title="Barcode Tag Kalung Kucing" class="p-2 rounded-lg bg-white border border-slate-300 text-medNavy hover:bg-blue-50 transition">
                             <i data-lucide="qr-code" class="w-4 h-4"></i>
                         </button>
-                        <button type="button" onclick="logoutPatient()" class="text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 px-3 py-2 rounded-lg flex items-center gap-1.5 transition">
-                            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-                            <span>Keluar</span>
+                        <button type="button" id="btn-logout-patient" onclick="logoutPatient(event)" class="text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 px-3 py-2 rounded-lg flex items-center gap-1.5 transition relative z-20 touch-manipulation cursor-pointer">
+                            <i data-lucide="log-out" class="w-3.5 h-3.5 pointer-events-none"></i>
+                            <span class="pointer-events-none">Keluar</span>
                         </button>
                     </div>
                 </div>
@@ -810,9 +810,9 @@
                         <i data-lucide="cloud" class="w-3.5 h-3.5"></i>
                         <span id="vet-cloud-label">Cloud</span>
                     </button>
-                    <button type="button" onclick="logoutVet()" class="text-xs font-bold bg-white text-medNavy hover:bg-red-50 hover:text-red-700 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
-                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-                        <span>Keluar Dokter</span>
+                    <button type="button" id="btn-logout-vet" onclick="logoutVet(event)" class="text-xs font-bold bg-white text-medNavy hover:bg-red-50 hover:text-red-700 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 relative z-20 touch-manipulation cursor-pointer">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5 pointer-events-none"></i>
+                        <span class="pointer-events-none">Keluar Dokter</span>
                     </button>
                 </div>
             </div>
@@ -1394,7 +1394,14 @@
             generateQrCode();
 
             const scanUser = urlParams.get('pasien');
-            if (scanUser) {
+            const justLoggedOut = sessionStorage.getItem('cat_diabetic_just_logged_out') === '1';
+            if (justLoggedOut) {
+                sessionStorage.removeItem('cat_diabetic_just_logged_out');
+                appState.currentUsername = null;
+                appState.currentDoctorUsername = null;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+                navigateTo('landing');
+            } else if (scanUser) {
                 if (appState.accounts[scanUser]) {
                     appState.currentUsername = scanUser;
                     saveStateToStorage();
@@ -1422,24 +1429,51 @@
                 enterVetPortal();
             }
         });
-
-        // ==========================================
-        // NAVIGATION & MODAL HELPERS
-        // ==========================================
-        function navigateTo(viewName) {
-            ['view-landing', 'view-login', 'view-vet-auth', 'view-patient', 'view-vet'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
-            const target = document.getElementById(`view-${viewName}`);
-            if (target) target.classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            lucide.createIcons();
+        function logoutPatient(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            appState.currentUsername = null;
+            appState.viewingHistoryWhilePaused = false;
+            try {
+                sessionStorage.setItem('cat_diabetic_just_logged_out', '1');
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            } catch (err) {
+                console.warn('Storage error on patient logout:', err);
+            }
+            if (window.location.search) {
+                try {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (err) {
+                    console.warn('History replaceState error:', err);
+                }
+            }
+            navigateTo('landing');
+            showToast('Berhasil keluar dari akun pasien.');
         }
-
-        function closeModal(modalId) {
-            const el = document.getElementById(modalId);
-            if (el) el.classList.add('hidden');
+        function logoutVet(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            appState.currentDoctorUsername = null;
+            appState.selectedVetUsername = null;
+            try {
+                sessionStorage.setItem('cat_diabetic_just_logged_out', '1');
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            } catch (err) {
+                console.warn('Storage error on vet logout:', err);
+            }
+            if (window.location.search) {
+                try {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (err) {
+                    console.warn('History replaceState error:', err);
+                }
+            }
+            navigateTo('landing');
+            showToast('Berhasil keluar dari portal dokter.');
         }
 
         let toastTimer = null;

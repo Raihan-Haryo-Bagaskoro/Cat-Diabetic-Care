@@ -1957,21 +1957,34 @@
         function saveCurrentDay(e) {
             e.preventDefault();
             const acc = getCurrentAccount();
-            if (!acc) return;
+            if (!acc) {
+                showToast('Sesi akun pasien tidak ditemukan. Silakan login kembali.');
+                return;
+            }
 
             const sched = computePatientScheduleState(acc);
-            const day = acc.selectedDay || sched.activeDay;
+            const day = Number(acc.selectedDay || sched.activeDay) || 1;
             const dayDateIso = addDaysIso(sched.startIso, day - 1);
 
             let babVal = '';
             ['normal', 'lembek', 'diare'].forEach(opt => {
-                if (document.getElementById(`bab-${opt}`).checked) babVal = opt;
+                const el = document.getElementById(`bab-${opt}`);
+                if (el && el.checked) babVal = opt;
             });
 
             let aktivitasVal = '';
             ['aktif', 'grooming', 'lesu'].forEach(opt => {
-                if (document.getElementById(`aktivitas-${opt}`).checked) aktivitasVal = opt;
+                const el = document.getElementById(`aktivitas-${opt}`);
+                if (el && el.checked) aktivitasVal = opt;
             });
+
+            const safeMedia = (currentUploadedMedia && currentUploadedMedia.dataUrl)
+                ? {
+                    name: currentUploadedMedia.name || 'lampiran',
+                    type: currentUploadedMedia.type || 'image',
+                    dataUrl: currentUploadedMedia.dataUrl
+                }
+                : null;
 
             acc.records = acc.records || {};
             const recordPayload = {
@@ -1996,42 +2009,58 @@
                 bahayaMuntah: document.getElementById('bahaya-muntah').checked,
                 bahayaLemas: document.getElementById('bahaya-lemas').checked,
                 catatan: document.getElementById('catatan-harian').value.trim(),
-                media: currentUploadedMedia,
+                media: safeMedia,
                 savedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
             };
+
             acc.records[day] = recordPayload;
+            appState.accounts[acc.username] = acc;
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-            pushSpecificCloudPath(`accounts/${acc.username}/records/${day}`, recordPayload);
-            renderDayPills();
-            loadDayForm(day);
-            showToast(`Laporan Hari ke-${day} berhasil disimpan & dikirim ke Dokter!`);
-        }
-
-        function renderPatientVetFeedback(acc) {
-            const box = document.getElementById('patient-vet-feedback-box');
-            if (!box) return;
-
-            const evals = Array.isArray(acc.vetEvaluations) ? acc.vetEvaluations : [];
-            if (evals.length === 0) {
-                box.classList.add('hidden');
-                return;
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            } catch (storageErr) {
+                console.warn('LocalStorage penuh saat menyimpan media, menyimpan tanpa media:', storageErr);
+                recordPayload.media = null;
+                acc.records[day] = recordPayload;
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+                } catch (e2) {
+                    console.warn('Gagal menulis localStorage:', e2);
+                }
             }
 
-            const latest = evals[0];
-            box.classList.remove('hidden');
-            document.getElementById('patient-vet-comment-text').textContent = latest.comment || '-';
-            document.getElementById('patient-vet-author').textContent = latest.doctorName || 'Dokter Hewan';
-            document.getElementById('patient-vet-time').textContent = latest.timestamp || '';
+            if (!isCloudConnected && typeof firebase !== 'undefined') {
+                const dbUrl = getActiveCloudUrl();
+                if (dbUrl) {
+                    try {
+                        if (!firebase.apps.length) {
+                            firebase.initializeApp({ databaseURL: dbUrl });
+                        }
+                        firebaseDb = firebase.database();
+                        isCloudConnected = true;
+                        updateCloudStatusUI();
+                    } catch (fbErr) {
+                        console.warn('Reconnect firebase on save:', fbErr);
+                    }
+                }
+            }
 
-            const badge = document.getElementById('patient-vet-status-badge');
-            badge.textContent = latest.status || 'Lanjutkan Terapi';
-            if (latest.status === 'Segera Bawa ke Klinik') {
-                badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300';
-            } else if (latest.status === 'Sesuaikan Dosis') {
-                badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+            pushSpecificCloudPath(`accounts/${acc.username}/records/${day}`, recordPayload);
+            pushSpecificCloudPath(`accounts/${acc.username}/namaPasien`, acc.namaPasien || '');
+            pushSpecificCloudPath(`accounts/${acc.username}/namaOwner`, acc.namaOwner || '');
+            pushSpecificCloudPath(`accounts/${acc.username}/usia`, acc.usia || '');
+            pushSpecificCloudPath(`accounts/${acc.username}/dokterUsername`, acc.dokterUsername || '');
+            pushSpecificCloudPath(`accounts/${acc.username}/jenisObat`, acc.jenisObat || '');
+            pushSpecificCloudPath(`accounts/${acc.username}/mingguKe`, acc.mingguKe || '1');
+            pushSpecificCloudPath(`accounts/${acc.username}/jadwalKontrol`, acc.jadwalKontrol || '');
+
+            renderDayPills();
+            loadDayForm(day);
+
+            if (isCloudConnected) {
+                showToast(`Laporan Hari ke-${day} berhasil disimpan & tersinkron ke Dokter!`);
             } else {
-                badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+                showToast(`Laporan Hari ke-${day} tersimpan di HP (Cloud belum aktif — klik badge Cloud untuk sinkron ke Dokter).`);
             }
         }
 

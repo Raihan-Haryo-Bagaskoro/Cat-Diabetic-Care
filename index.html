@@ -1259,8 +1259,30 @@
                         return;
                     }
 
-                    appState.doctors = { ...appState.doctors, ...(cloudData.doctors || {}) };
-                    appState.accounts = { ...appState.accounts, ...(cloudData.accounts || {}) };
+                    const mergedDoctors = { ...(appState.doctors || {}) };
+                    Object.entries(cloudData.doctors || {}).forEach(([k, v]) => {
+                        const cleanKey = String(k).trim().toLowerCase();
+                        if (v && typeof v === 'object') {
+                            mergedDoctors[cleanKey] = { ...v, username: cleanKey };
+                        }
+                    });
+
+                    const mergedAccounts = { ...(appState.accounts || {}) };
+                    Object.entries(cloudData.accounts || {}).forEach(([k, v]) => {
+                        const cleanKey = String(k).trim().toLowerCase();
+                        if (v && typeof v === 'object') {
+                            const existingLocal = mergedAccounts[cleanKey];
+                            mergedAccounts[cleanKey] = {
+                                ...(existingLocal || {}),
+                                ...v,
+                                username: cleanKey,
+                                dokterUsername: v.dokterUsername ? String(v.dokterUsername).trim().toLowerCase() : (existingLocal ? existingLocal.dokterUsername : '')
+                            };
+                        }
+                    });
+
+                    appState.doctors = mergedDoctors;
+                    appState.accounts = mergedAccounts;
 
                     Object.values(appState.accounts).forEach(acc => {
                         acc.records = acc.records || {};
@@ -1269,7 +1291,11 @@
                             : (acc.vetEvaluations ? Object.values(acc.vetEvaluations) : []);
                     });
 
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+                    try {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+                    } catch (e) {
+                        console.warn('LocalStorage sync warning:', e);
+                    }
                     populateDoctorSelectOptions();
 
                     if (!document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
@@ -1285,6 +1311,10 @@
                             renderVetPatientList();
                         }
                     }
+                }, (dbErr) => {
+                    console.warn('Firebase read permission/network warning:', dbErr);
+                    isCloudConnected = false;
+                    updateCloudStatusUI();
                 });
             } catch (err) {
                 console.error('Firebase init error:', err);
@@ -1478,15 +1508,24 @@
         function handleLogin(e) {
             e.preventDefault();
             const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value;
+            const password = document.getElementById('login-password').value.trim();
+
+            if (!username) {
+                showToast('Silakan masukkan nama akun terlebih dahulu.');
+                return;
+            }
 
             const acc = appState.accounts[username];
             if (!acc) {
-                showToast('Nama akun pasien tidak ditemukan. Silakan daftar pasien baru.');
+                if (!isCloudConnected) {
+                    showToast('Akun tidak ditemukan di HP ini. Pastikan Cloud terhubung atau daftar pasien baru.');
+                } else {
+                    showToast('Nama akun pasien tidak ditemukan. Periksa ejaan atau daftar pasien baru.');
+                }
                 return;
             }
-            if (acc.password !== password) {
-                showToast('Password salah. Periksa kembali password Anda.');
+            if (String(acc.password || '').trim() !== password) {
+                showToast('Password salah. Periksa kembali password Anda (hindari spasi berlebih).');
                 return;
             }
 
@@ -1498,7 +1537,7 @@
         function handleRegister(e) {
             e.preventDefault();
             const username = document.getElementById('reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
-            const password = document.getElementById('reg-password').value;
+            const password = document.getElementById('reg-password').value.trim();
             const namaPasien = document.getElementById('reg-nama-pasien').value.trim();
             const namaOwner = document.getElementById('reg-nama-owner').value.trim();
             const usia = document.getElementById('reg-usia').value.trim();
@@ -1588,14 +1627,23 @@
         function handleVetLogin(e) {
             e.preventDefault();
             const username = document.getElementById('vet-login-username').value.trim().toLowerCase();
-            const password = document.getElementById('vet-login-password').value;
+            const password = document.getElementById('vet-login-password').value.trim();
+
+            if (!username) {
+                showToast('Masukkan username dokter terlebih dahulu.');
+                return;
+            }
 
             const doc = appState.doctors[username];
             if (!doc) {
-                showToast('Username dokter tidak ditemukan. Silakan daftar dokter baru.');
+                if (!isCloudConnected) {
+                    showToast('Akun dokter belum ada di HP ini. Hubungkan Cloud atau daftar dokter baru.');
+                } else {
+                    showToast('Username dokter tidak ditemukan. Silakan daftar dokter baru.');
+                }
                 return;
             }
-            if (doc.password !== password) {
+            if (String(doc.password || '').trim() !== password) {
                 showToast('Password dokter salah.');
                 return;
             }
@@ -1609,7 +1657,7 @@
             e.preventDefault();
             const fullName = document.getElementById('vet-reg-fullname').value.trim();
             const username = document.getElementById('vet-reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
-            const password = document.getElementById('vet-reg-password').value;
+            const password = document.getElementById('vet-reg-password').value.trim();
             const clinic = document.getElementById('vet-reg-sip').value.trim();
 
             if (appState.doctors[username]) {

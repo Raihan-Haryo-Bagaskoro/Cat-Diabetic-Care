@@ -1544,7 +1544,9 @@
             }
 
             if (urlParams.has('pasien') || urlParams.has('scan')) {
-                setExplicitLogoutFlag(false);
+                setExplicitLogoutFlag(true);
+                appState.currentUsername = null;
+                appState.currentDoctorUsername = null;
                 try {
                     const cleanUrl = window.location.href.split('?')[0].split('#')[0];
                     const nextParams = new URLSearchParams();

@@ -129,7 +129,7 @@
                 <div class="relative z-10 flex justify-center mb-5">
                     <button type="button" onclick="openQrModal()" class="inline-flex items-center gap-2 text-xs font-bold text-medNavy bg-medBlueLight hover:bg-blue-100 border border-blue-200 px-3.5 py-2 rounded-full shadow-2xs transition active:scale-95">
                         <i data-lucide="qr-code" class="w-4 h-4 text-blue-700"></i>
-                        <span>Scan QR Code Pasien</span>
+                        <span>Scan QR Code / Link Web</span>
                     </button>
                 </div>
 
@@ -1035,14 +1035,14 @@
             <div>
                 <h3 class="font-display font-extrabold text-lg text-medNavy">QR Code Kartu Pemantauan</h3>
                 <p id="qr-tag-caption" class="text-xs text-slate-500 mt-1">
-                    Cetak / ukir QR Code ini pada tag kalung kucing agar keluarga di rumah dapat langsung scan dari HP.
+                    Scan QR Code atau buka link ini untuk langsung membuka halaman beranda utama CAT DIABETIC CARE di perangkat mana saja.
                 </p>
             </div>
 
             <div class="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2">
                 <div id="qrcode-canvas" class="bg-white p-2 rounded-xl shadow-xs"></div>
                 <span id="qr-patient-label" class="text-[11px] font-extrabold text-medNavy uppercase tracking-wide">
-                    CAT DIABETIC CARE
+                    HALAMAN UTAMA • CAT DIABETIC CARE
                 </span>
             </div>
 
@@ -1053,7 +1053,7 @@
                 </button>
                 <button type="button" onclick="copyPatientLink()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition">
                     <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                    <span>Salin Link Langsung Pasien</span>
+                    <span>Salin Link Halaman Utama</span>
                 </button>
             </div>
         </div>
@@ -1132,6 +1132,7 @@
         let firebaseDb = null;
         let isCloudConnected = false;
         let currentUploadedMedia = null;
+        let cloudSyncTimer = null;
 
         let appState = {
             currentUsername: null,
@@ -1211,10 +1212,256 @@
         function saveStateToStorage() {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-                pushDataToCloud();
             } catch (e) {
                 console.warn('Storage quota warning:', e);
-                showToast('Catatan tersimpan (ukuran lampiran media terlalu besar untuk memori HP).');
+                try {
+                    const lightweightState = {
+                        ...appState,
+                        accounts: Object.fromEntries(
+                            Object.entries(appState.accounts || {}).map(([k, acc]) => [
+                                k,
+                                {
+                                    ...acc,
+                                    records: Object.fromEntries(
+                                        Object.entries(acc.records || {}).map(([rk, rv]) => [
+                                            rk,
+                                            rv ? { ...rv, media: null } : rv
+                                        ])
+                                    )
+                                }
+                            ])
+                        )
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweightState));
+                } catch (err2) {
+                    console.warn('Fallback storage warning:', err2);
+                }
+            }
+            scheduleCloudSync();
+        }
+
+        function getActiveCloudUrl() {
+            return (localStorage.getItem(CLOUD_URL_KEY) || DEFAULT_FIREBASE_DB_URL || '').trim().replace(/\/+$/, '');
+        }
+
+        function updateCloudStatusUI() {
+            const url = getActiveCloudUrl();
+            const connected = isCloudConnected && !!url;
+
+            const landingDot = document.getElementById('landing-cloud-dot');
+            const landingText = document.getElementById('landing-cloud-text');
+            const landingBadge = document.getElementById('landing-cloud-badge');
+            const patientSyncLabel = document.getElementById('patient-sync-label');
+            const vetCloudLabel = document.getElementById('vet-cloud-label');
+
+            if (connected) {
+                if (landingDot) landingDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                if (landingText) landingText.textContent = 'Cloud Aktif • Sinkron Antar-HP & Laptop';
+                if (landingBadge) landingBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition';
+                if (patientSyncLabel) patientSyncLabel.textContent = 'Cloud Real-Time Aktif';
+                if (vetCloudLabel) vetCloudLabel.textContent = 'Cloud Aktif';
+            } else {
+                if (landingDot) landingDot.className = 'w-2 h-2 rounded-full bg-amber-500';
+                if (landingText) landingText.textContent = url ? 'Menghubungkan Cloud...' : 'Mode Lokal Perangkat • Klik Cloud';
+                if (landingBadge) landingBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition';
+                if (patientSyncLabel) patientSyncLabel.textContent = 'Tersimpan di Perangkat';
+                if (vetCloudLabel) vetCloudLabel.textContent = 'Hubungkan Cloud';
+            }
+        }
+
+        function mergeCloudSnapshot(cloudData) {
+            if (!cloudData || typeof cloudData !== 'object') return;
+
+            const mergedDoctors = { ...(appState.doctors || {}) };
+            Object.entries(cloudData.doctors || {}).forEach(([k, v]) => {
+                const cleanKey = String(k || (v && v.username) || '').trim().toLowerCase();
+                if (cleanKey && v && typeof v === 'object') {
+                    mergedDoctors[cleanKey] = {
+                        ...(mergedDoctors[cleanKey] || {}),
+                        ...v,
+                        username: cleanKey,
+                        fullName: v.fullName || (mergedDoctors[cleanKey] && mergedDoctors[cleanKey].fullName) || cleanKey,
+                        password: String(v.password !== undefined ? v.password : ((mergedDoctors[cleanKey] && mergedDoctors[cleanKey].password) || '')).trim()
+                    };
+                }
+            });
+
+            const mergedAccounts = { ...(appState.accounts || {}) };
+            Object.entries(cloudData.accounts || {}).forEach(([k, v]) => {
+                const cleanKey = String(k || (v && v.username) || '').trim().toLowerCase();
+                if (cleanKey && v && typeof v === 'object') {
+                    const existingLocal = mergedAccounts[cleanKey] || {};
+                    const cloudRecords = v.records && typeof v.records === 'object' ? v.records : {};
+                    const localRecords = existingLocal.records && typeof existingLocal.records === 'object' ? existingLocal.records : {};
+                    const combinedRecords = { ...localRecords, ...cloudRecords };
+
+                    const cloudEvals = Array.isArray(v.vetEvaluations)
+                        ? v.vetEvaluations
+                        : (v.vetEvaluations && typeof v.vetEvaluations === 'object' ? Object.values(v.vetEvaluations) : []);
+                    const localEvals = Array.isArray(existingLocal.vetEvaluations)
+                        ? existingLocal.vetEvaluations
+                        : (existingLocal.vetEvaluations && typeof existingLocal.vetEvaluations === 'object' ? Object.values(existingLocal.vetEvaluations) : []);
+
+                    mergedAccounts[cleanKey] = {
+                        ...existingLocal,
+                        ...v,
+                        username: cleanKey,
+                        password: String(v.password !== undefined ? v.password : (existingLocal.password || '')).trim(),
+                        dokterUsername: String(v.dokterUsername || existingLocal.dokterUsername || '').trim().toLowerCase(),
+                        records: combinedRecords,
+                        vetEvaluations: cloudEvals.length > 0 ? cloudEvals : localEvals
+                    };
+                }
+            });
+
+            appState.doctors = mergedDoctors;
+            appState.accounts = mergedAccounts;
+
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            } catch (e) {
+                console.warn('LocalStorage sync warning:', e);
+            }
+
+            populateDoctorSelectOptions();
+
+            if (!document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
+                const acc = getCurrentAccount();
+                renderPatientVetFeedback(acc);
+                renderDayPills();
+                updatePatientScreenState();
+            }
+            if (!document.getElementById('view-vet').classList.contains('hidden') && getCurrentDoctor()) {
+                if (appState.selectedVetUsername) {
+                    openVetPatientDetail(appState.selectedVetUsername);
+                } else {
+                    renderVetPatientList();
+                }
+            }
+        }
+
+        async function fetchCloudRestFallback(dbUrl) {
+            try {
+                const res = await fetch(`${dbUrl}/cat_diabetic_care_data.json?t=${Date.now()}`, { cache: 'no-store' });
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (err) {
+                return null;
+            }
+        }
+
+        async function pushCloudRestFallback(dbUrl, path, payload) {
+            try {
+                const cleanPath = path ? `/${path}` : '';
+                await fetch(`${dbUrl}/cat_diabetic_care_data${cleanPath}.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (err) {
+                console.warn('REST fallback push skipped:', err);
+            }
+        }
+
+        function initCloudSync() {
+            const dbUrl = getActiveCloudUrl();
+            if (!dbUrl) {
+                isCloudConnected = false;
+                updateCloudStatusUI();
+                return;
+            }
+
+            fetchCloudRestFallback(dbUrl).then((restData) => {
+                if (restData) {
+                    isCloudConnected = true;
+                    updateCloudStatusUI();
+                    mergeCloudSnapshot(restData);
+                }
+            });
+
+            if (typeof firebase === 'undefined') {
+                updateCloudStatusUI();
+                return;
+            }
+
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp({ databaseURL: dbUrl });
+                }
+                firebaseDb = firebase.database();
+                isCloudConnected = true;
+                updateCloudStatusUI();
+
+                firebaseDb.ref('cat_diabetic_care_data').on('value', (snapshot) => {
+                    isCloudConnected = true;
+                    updateCloudStatusUI();
+                    const cloudData = snapshot.val();
+                    if (!cloudData) {
+                        if (Object.keys(appState.doctors).length > 0 || Object.keys(appState.accounts).length > 0) {
+                            pushDataToCloud();
+                        }
+                        return;
+                    }
+                    mergeCloudSnapshot(cloudData);
+                }, (dbErr) => {
+                    console.warn('Firebase SDK listener warning, using REST fallback:', dbErr);
+                    fetchCloudRestFallback(dbUrl).then((restData) => {
+                        if (restData) {
+                            isCloudConnected = true;
+                            updateCloudStatusUI();
+                            mergeCloudSnapshot(restData);
+                        } else {
+                            isCloudConnected = false;
+                            updateCloudStatusUI();
+                        }
+                    });
+                });
+            } catch (err) {
+                console.error('Firebase init error:', err);
+                updateCloudStatusUI();
+            }
+        }
+
+        function scheduleCloudSync() {
+            clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = setTimeout(() => {
+                pushDataToCloud();
+            }, 150);
+        }
+
+        function pushDataToCloud() {
+            const dbUrl = getActiveCloudUrl();
+            const payload = {
+                doctors: appState.doctors || {},
+                accounts: appState.accounts || {},
+                updatedAt: Date.now()
+            };
+
+            if (dbUrl) {
+                pushCloudRestFallback(dbUrl, '', payload);
+            }
+
+            if (!firebaseDb) return;
+            try {
+                firebaseDb.ref('cat_diabetic_care_data').set(payload);
+            } catch (e) {
+                console.warn('Cloud push error:', e);
+            }
+        }
+
+        function pushSpecificCloudPath(path, data) {
+            const dbUrl = getActiveCloudUrl();
+            if (dbUrl) {
+                pushCloudRestFallback(dbUrl, path, data);
+                pushCloudRestFallback(dbUrl, 'updatedAt', Date.now());
+            }
+
+            if (!firebaseDb) return;
+            try {
+                firebaseDb.ref(`cat_diabetic_care_data/${path}`).set(data);
+                firebaseDb.ref('cat_diabetic_care_data/updatedAt').set(Date.now());
+            } catch (e) {
+                console.warn('Cloud atomic push error:', e);
             }
         }
 
@@ -1406,41 +1653,18 @@
             populateDoctorSelectOptions();
             generateQrCode();
 
-            const scanUser = urlParams.get('pasien');
-            const justLoggedOut = sessionStorage.getItem('cat_diabetic_just_logged_out') === '1';
-            if (justLoggedOut) {
-                sessionStorage.removeItem('cat_diabetic_just_logged_out');
-                appState.currentUsername = null;
-                appState.currentDoctorUsername = null;
+            // Barcode dan link selalu mengarah ke halaman web paling awal (#view-landing)
+            appState.currentUsername = null;
+            appState.currentDoctorUsername = null;
+            appState.selectedVetUsername = null;
+            appState.viewingHistoryWhilePaused = false;
+            sessionStorage.removeItem('cat_diabetic_just_logged_out');
+            try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-                navigateTo('landing');
-            } else if (scanUser) {
-                if (appState.accounts[scanUser]) {
-                    appState.currentUsername = scanUser;
-                    saveStateToStorage();
-                    enterPatientCard();
-                } else {
-                    appState.currentUsername = scanUser;
-                    setTimeout(() => {
-                        if (getCurrentAccount()) {
-                            enterPatientCard();
-                        } else {
-                            appState.currentUsername = null;
-                            goToLogin();
-                        }
-                    }, 1200);
-                }
-            } else if (urlParams.get('scan') === 'patient') {
-                if (getCurrentAccount()) {
-                    enterPatientCard();
-                } else {
-                    goToLogin();
-                }
-            } else if (getCurrentAccount()) {
-                enterPatientCard();
-            } else if (getCurrentDoctor()) {
-                enterVetPortal();
+            } catch (e) {
+                console.warn('Initial state save warning:', e);
             }
+            navigateTo('landing');
         });
 
         function logoutPatient(e) {
@@ -1556,31 +1780,54 @@
 
         function handleLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value.trim();
+            const usernameInput = document.getElementById('login-username').value.trim().toLowerCase();
+            const passwordInput = document.getElementById('login-password').value.trim();
 
-            if (!username) {
+            if (!usernameInput) {
                 showToast('Silakan masukkan nama akun terlebih dahulu.');
                 return;
             }
 
-            const acc = appState.accounts[username];
+            let acc = appState.accounts[usernameInput];
             if (!acc) {
-                if (!isCloudConnected) {
-                    showToast('Akun tidak ditemukan di HP ini. Pastikan Cloud terhubung atau daftar pasien baru.');
-                } else {
-                    showToast('Nama akun pasien tidak ditemukan. Periksa ejaan atau daftar pasien baru.');
-                }
-                return;
+                acc = Object.values(appState.accounts || {}).find(
+                    item => item && (
+                        String(item.username || '').trim().toLowerCase() === usernameInput ||
+                        String(item.namaPasien || '').trim().toLowerCase() === usernameInput
+                    )
+                );
             }
-            if (String(acc.password || '').trim() !== password) {
-                showToast('Password salah. Periksa kembali password Anda (hindari spasi berlebih).');
+
+            const proceedLogin = (targetAcc) => {
+                if (!targetAcc) {
+                    showToast('Nama akun pasien tidak ditemukan. Periksa ejaan atau daftar pasien baru.');
+                    return;
+                }
+                if (String(targetAcc.password || '').trim() !== passwordInput) {
+                    showToast('Password salah. Periksa kembali password Anda.');
+                    return;
+                }
+                appState.currentUsername = String(targetAcc.username || usernameInput).trim().toLowerCase();
+                saveStateToStorage();
+                enterPatientCard();
+            };
+
+            if (!acc && getActiveCloudUrl()) {
+                showToast('Menyinkronkan data akun dari Cloud...');
+                fetchCloudRestFallback(getActiveCloudUrl()).then((cloudData) => {
+                    if (cloudData) mergeCloudSnapshot(cloudData);
+                    const refreshed = appState.accounts[usernameInput] || Object.values(appState.accounts || {}).find(
+                        item => item && (
+                            String(item.username || '').trim().toLowerCase() === usernameInput ||
+                            String(item.namaPasien || '').trim().toLowerCase() === usernameInput
+                        )
+                    );
+                    proceedLogin(refreshed);
+                });
                 return;
             }
 
-            appState.currentUsername = username;
-            saveStateToStorage();
-            enterPatientCard();
+            proceedLogin(acc);
         }
 
         function handleRegister(e) {
@@ -1669,31 +1916,54 @@
 
         function handleVetLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('vet-login-username').value.trim().toLowerCase();
-            const password = document.getElementById('vet-login-password').value.trim();
+            const usernameInput = document.getElementById('vet-login-username').value.trim().toLowerCase();
+            const passwordInput = document.getElementById('vet-login-password').value.trim();
 
-            if (!username) {
+            if (!usernameInput) {
                 showToast('Masukkan username dokter terlebih dahulu.');
                 return;
             }
 
-            const doc = appState.doctors[username];
+            let doc = appState.doctors[usernameInput];
             if (!doc) {
-                if (!isCloudConnected) {
-                    showToast('Akun dokter belum ada di HP ini. Hubungkan Cloud atau daftar dokter baru.');
-                } else {
-                    showToast('Username dokter tidak ditemukan. Silakan daftar dokter baru.');
-                }
-                return;
+                doc = Object.values(appState.doctors || {}).find(
+                    item => item && (
+                        String(item.username || '').trim().toLowerCase() === usernameInput ||
+                        String(item.fullName || '').trim().toLowerCase() === usernameInput
+                    )
+                );
             }
-            if (String(doc.password || '').trim() !== password) {
-                showToast('Password dokter salah.');
+
+            const proceedVetLogin = (targetDoc) => {
+                if (!targetDoc) {
+                    showToast('Username dokter tidak ditemukan. Silakan daftar dokter baru.');
+                    return;
+                }
+                if (String(targetDoc.password || '').trim() !== passwordInput) {
+                    showToast('Password dokter salah.');
+                    return;
+                }
+                appState.currentDoctorUsername = String(targetDoc.username || usernameInput).trim().toLowerCase();
+                saveStateToStorage();
+                enterVetPortal();
+            };
+
+            if (!doc && getActiveCloudUrl()) {
+                showToast('Menyinkronkan akun dokter dari Cloud...');
+                fetchCloudRestFallback(getActiveCloudUrl()).then((cloudData) => {
+                    if (cloudData) mergeCloudSnapshot(cloudData);
+                    const refreshed = appState.doctors[usernameInput] || Object.values(appState.doctors || {}).find(
+                        item => item && (
+                            String(item.username || '').trim().toLowerCase() === usernameInput ||
+                            String(item.fullName || '').trim().toLowerCase() === usernameInput
+                        )
+                    );
+                    proceedVetLogin(refreshed);
+                });
                 return;
             }
 
-            appState.currentDoctorUsername = username;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-            enterVetPortal();
+            proceedVetLogin(doc);
         }
 
         function handleVetRegister(e) {
@@ -2529,35 +2799,32 @@
         // ==========================================
         // QR CODE TAG KALUNG KUCING
         // ==========================================
-        function buildShareableUrl(acc = null) {
-            const baseUrl = window.location.href.split('?')[0];
+        function buildShareableUrl() {
+            const baseUrl = window.location.href.split('?')[0].split('#')[0];
             const params = new URLSearchParams();
-            if (acc) {
-                params.set('pasien', acc.username);
-            } else {
-                params.set('scan', 'patient');
-            }
             const cloudUrl = getActiveCloudUrl();
             if (cloudUrl) {
                 params.set('db', cloudUrl);
             }
-            return `${baseUrl}?${params.toString()}`;
+            const queryString = params.toString();
+            return queryString ? `${baseUrl}?${queryString}` : baseUrl;
         }
 
         function generateQrCode(acc = null) {
             const qrContainer = document.getElementById('qrcode-canvas');
             if (!qrContainer) return;
             qrContainer.innerHTML = '';
-            const targetUrl = buildShareableUrl(acc);
+            const targetUrl = buildShareableUrl();
 
             const captionEl = document.getElementById('qr-tag-caption');
             const labelEl = document.getElementById('qr-patient-label');
-            if (acc) {
-                if (captionEl) captionEl.textContent = `Scan QR Code tag kalung ini untuk langsung membuka kartu pemantauan ${acc.namaPasien} (Owner: ${acc.namaOwner}) dari HP mana saja.`;
-                if (labelEl) labelEl.textContent = `PASIEN: ${acc.namaPasien.toUpperCase()}`;
-            } else {
-                if (captionEl) captionEl.textContent = 'Cetak / ukir QR Code ini pada tag kalung kucing agar keluarga di rumah dapat langsung scan dari HP.';
-                if (labelEl) labelEl.textContent = 'CAT DIABETIC CARE';
+            if (captionEl) {
+                captionEl.textContent = 'Scan QR Code atau buka link ini untuk langsung membuka halaman web pertama (Beranda Utama) CAT DIABETIC CARE di HP maupun laptop.';
+            }
+            if (labelEl) {
+                labelEl.textContent = acc && acc.namaPasien
+                    ? `BERANDA UTAMA • ${String(acc.namaPasien).toUpperCase()}`
+                    : 'BERANDA UTAMA • CAT DIABETIC CARE';
             }
 
             if (typeof QRCode !== 'undefined') {
@@ -2607,12 +2874,11 @@
         }
 
         function copyPatientLink() {
-            const acc = getCurrentAccount();
-            const targetUrl = buildShareableUrl(acc);
+            const targetUrl = buildShareableUrl();
 
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(targetUrl).then(() => {
-                    showToast('Link langsung pasien berhasil disalin!');
+                    showToast('Link halaman utama berhasil disalin!');
                 }).catch(() => fallbackCopyText(targetUrl));
             } else {
                 fallbackCopyText(targetUrl);
@@ -2626,7 +2892,7 @@
             tempInput.select();
             document.execCommand('copy');
             document.body.removeChild(tempInput);
-            showToast('Link langsung pasien berhasil disalin!');
+            showToast('Link halaman utama berhasil disalin!');
         }
 
         // ==========================================

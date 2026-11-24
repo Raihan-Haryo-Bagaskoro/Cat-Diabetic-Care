@@ -98,6 +98,18 @@
         .animate-fade-in {
             animation: fadeIn 0.28s ease-out forwards;
         }
+        /* Pastikan elemen interaktif di HP (Android/iOS) bebas hambatan sentuh & zoom ganda */
+        button, a, input, select, textarea, label {
+            touch-action: manipulation;
+        }
+        /* Cegah overlay tersembunyi atau elemen non-interaktif memblokir tap di layar sentuh */
+        section.hidden,
+        #modal-qr.hidden,
+        #modal-cloud.hidden,
+        #toast.hidden {
+            display: none !important;
+            pointer-events: none !important;
+        }
     </style>
 </head>
 <body class="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-blue-200">
@@ -1008,8 +1020,8 @@
     <!-- ========================================================= -->
     <!-- MODAL 1: QR CODE BARCODE TAG KALUNG KUCING                -->
     <!-- ========================================================= -->
-    <div id="modal-qr" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-center space-y-4">
+    <div id="modal-qr" onclick="handleBackdropClick(event, 'modal-qr')" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div onclick="event.stopPropagation()" class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-center space-y-4">
             <div class="flex justify-between items-center">
                 <span class="text-xs font-bold uppercase tracking-wider text-medNavy bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
                     <i data-lucide="tag" class="w-3.5 h-3.5 text-blue-600"></i> Tag Kalung Kucing
@@ -1049,8 +1061,8 @@
     <!-- ========================================================= -->
     <!-- MODAL 2: KONEKSI CLOUD REAL-TIME (FIREBASE)               -->
     <!-- ========================================================= -->
-    <div id="modal-cloud" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-left space-y-4">
+    <div id="modal-cloud" onclick="handleBackdropClick(event, 'modal-cloud')" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div onclick="event.stopPropagation()" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-left space-y-4">
             <div class="flex justify-between items-center">
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
                     <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Sinkronisasi Antar-HP
@@ -1100,7 +1112,7 @@
     <!-- ========================================================= -->
     <!-- TOAST NOTIFICATION                                        -->
     <!-- ========================================================= -->
-    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2.5 max-w-[92vw]">
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none hidden bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2.5 max-w-[92vw]">
         <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 shrink-0"></i>
         <span id="toast-message">Data tersimpan!</span>
     </div>
@@ -2625,6 +2637,55 @@
             document.execCommand('copy');
             document.body.removeChild(tempInput);
             showToast('Link langsung pasien berhasil disalin!');
+        }
+
+        // ==========================================
+        // NAVIGASI HALAMAN & KONTROL MODAL
+        // ==========================================
+        function navigateTo(viewName) {
+            const views = ['landing', 'login', 'vet-auth', 'patient', 'vet'];
+            views.forEach(name => {
+                const el = document.getElementById(`view-${name}`);
+                if (!el) return;
+                if (name === viewName) {
+                    el.classList.remove('hidden');
+                    el.style.display = '';
+                    el.style.pointerEvents = 'auto';
+                } else {
+                    el.classList.add('hidden');
+                    el.style.display = 'none';
+                    el.style.pointerEvents = 'none';
+                }
+            });
+
+            // Tutup modal yang mungkin terbuka saat berpindah halaman
+            ['modal-qr', 'modal-cloud'].forEach(modalId => {
+                const modalEl = document.getElementById(modalId);
+                if (modalEl) {
+                    modalEl.classList.add('hidden');
+                    modalEl.style.display = 'none';
+                    modalEl.style.pointerEvents = 'none';
+                }
+            });
+
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        }
+
+        function closeModal(modalId) {
+            const modalEl = document.getElementById(modalId);
+            if (!modalEl) return;
+            modalEl.classList.add('hidden');
+            modalEl.style.display = 'none';
+            modalEl.style.pointerEvents = 'none';
+        }
+
+        function handleBackdropClick(event, modalId) {
+            if (event.target && event.target.id === modalId) {
+                closeModal(modalId);
+            }
         }
     </script>
 </body>

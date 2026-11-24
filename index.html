@@ -16,6 +16,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
+    <!-- Konfigurasi tema dan palet warna medis -->
     <script>
         tailwind.config = {
             theme: {
@@ -420,7 +421,7 @@
         <!-- HALAMAN 3: KARTU PEMANTAUAN HARIAN PASIEN                 -->
         <!-- ========================================================= -->
         <section id="view-patient" class="hidden w-full max-w-2xl animate-fade-in pb-10">
-            
+
             <!-- Status Sinkronisasi & Barcode Kalung -->
             <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
                 <button type="button" onclick="openCloudConfigModal()" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition">
@@ -793,7 +794,7 @@
         <!-- HALAMAN 4: PORTAL DOKTER HEWAN (TERISOLASI PER DOKTER)    -->
         <!-- ========================================================= -->
         <section id="view-vet" class="hidden w-full max-w-4xl animate-fade-in pb-12">
-            
+
             <!-- Top Navigation Bar Dokter -->
             <div class="bg-medNavy text-white rounded-2xl p-4 mb-5 shadow-md flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
@@ -1441,6 +1442,7 @@
                 enterVetPortal();
             }
         });
+
         function logoutPatient(e) {
             if (e) {
                 e.preventDefault();
@@ -1464,6 +1466,7 @@
             navigateTo('landing');
             showToast('Berhasil keluar dari akun pasien.');
         }
+
         function logoutVet(e) {
             if (e) {
                 e.preventDefault();
@@ -1628,12 +1631,6 @@
             enterPatientCard();
         }
 
-        function logoutPatient() {
-            appState.currentUsername = null;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-            navigateTo('landing');
-        }
-
         // ==========================================
         // AUTENTIKASI DOKTER HEWAN
         // ==========================================
@@ -1725,13 +1722,6 @@
             populateDoctorSelectOptions();
             showToast(`Selamat datang, ${fullName}!`);
             enterVetPortal();
-        }
-
-        function logoutVet() {
-            appState.currentDoctorUsername = null;
-            appState.selectedVetUsername = null;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-            navigateTo('landing');
         }
 
         // ==========================================

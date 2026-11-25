@@ -1397,6 +1397,3050 @@
                 const localEvals = Array.isArray(localAcc.vetEvaluations) ? localAcc.vetEvaluations.filter(Boolean) : [];
                 const combinedEvals = remoteEvals.length >= localEvals.length ? remoteEvals : localEvals;
 
+                const isLocalOwner = appState.currentUsername && normalizeKeyStr(appState.currentUsername) === normalizeKeyStr(k);
+                const resolvedMonitoringStatus = (appState.currentDoctorUsername && localAcc.monitoringStatus)
+                    ? localAcc.monitoringStatus
+                    : (isLocalOwner && localAcc.monitoringStatus === 'active'
+                        ? 'active'
+                        : (remoteAcc.monitoringStatus || localAcc.monitoringStatus || 'not_started'));
+
+                mergedAccounts[k] = {
+                    ...remoteAcc,
+                    ...localAcc,
+                    monitoringStatus: resolvedMonitoringStatus,
+                    records: combinedRecs,
+                    vetEvaluations: combinedEvals
+                };
+            });
+
+            appState.doctors = mergedDoctors;
+            appState.accounts = mergedAccounts;
+            try {
+                const payloadToSave = {
+                    ...appState,
+                    currentUsername: null,
+                    currentDoctorUsername: null,
+                    selectedVetUsername: null
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadToSave));
+            } catch (e) {}
+
+            populateDoctorSelectOptions();
+
+            if (isSessionAuthenticated && !document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
+                renderPatientVetFeedback(getCurrentAccount());
+            }
+
+            if (!isUserEditingForm) {
+                if (isSessionAuthenticated && !document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
+                    renderDayPills();
+                    updatePatientScreenState();
+                }
+                if (isSessionAuthenticated && !document.getElementById('view-vet').classList.contains('hidden') && getCurrentDoctor()) {
+                    if (appState.selectedVetUsername) {
+                        openVetPatientDetail(appState.selectedVetUsername);
+                    } else {
+                        renderVetPatientList();
+                    }
+                }
+            }
+        }
+
+        async function fetchCloudOnceViaRest() {
+            const dbUrl = getActiveCloudUrl();
+            if (!dbUrl) return null;
+            try {
+                const res = await fetch(`${dbUrl}/cat_diabetic_care_data.json`, { cache: 'no-store' });
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function pushCloudViaRest() {
+            const dbUrl = getActiveCloudUrl();
+            if (!dbUrl) return;
+            try {
+                await fetch(`${dbUrl}/cat_diabetic_care_data.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        doctors: appState.doctors || {},
+                        accounts: appState.accounts || {},
+                        updatedAt: Date.now()
+                    })
+                });
+            } catch (e) {}
+        }
+
+        function initCloudSync() {
+            const dbUrl = getActiveCloudUrl();
+            if (!dbUrl) {
+                isCloudConnected = false;
+                updateCloudStatusUI();
+                return;
+            }
+
+            fetchCloudOnceViaRest().then(data => {
+                if (data) applyRemoteSnapshot(data);
+            });
+
+            if (typeof firebase === 'undefined') {
+                isCloudConnected = true;
+                updateCloudStatusUI();
+                return;
+            }
+
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp({ databaseURL: dbUrl });
+                }
+                firebaseDb = firebase.database();
+                isCloudConnected = true;
+                updateCloudStatusUI();
+
+                firebaseDb.ref('cat_diabetic_care_data').on('value', (snapshot) => {
+                    const cloudData = snapshot.val();
+                    if (!cloudData) {
+                        if (Object.keys(appState.doctors).length > 0 || Object.keys(appState.accounts).length > 0) {
+                            pushDataToCloud();
+                        }
+                        return;
+                    }
+                    applyRemoteSnapshot(cloudData);
+                });
+            } catch (err) {
+                console.warn('Firebase SDK fallback to REST:', err);
+                isCloudConnected = true;
+                updateCloudStatusUI();
+            }
+        }
+
+        function pushDataToCloud() {
+            const dbUrl = getActiveCloudUrl();
+            if (!dbUrl) return;
+
+            if (!isCloudConnected || !firebaseDb) {
+                pushCloudViaRest();
+                return;
+            }
+            try {
+                if (appState.doctors && Object.keys(appState.doctors).length > 0) {
+                    firebaseDb.ref('cat_diabetic_care_data/doctors').update(appState.doctors);
+                }
+                if (appState.accounts && Object.keys(appState.accounts).length > 0) {
+                    Object.entries(appState.accounts).forEach(([accKey, accVal]) => {
+                        if (accVal && typeof accVal === 'object') {
+                            firebaseDb.ref(`cat_diabetic_care_data/accounts/${accKey}`).set(accVal);
+                        }
+                    });
+                }
+                firebaseDb.ref('cat_diabetic_care_data/updatedAt').set(Date.now());
+            } catch (e) {
+                console.warn('Cloud push error:', e);
+                pushCloudViaRest();
+            }
+        }
+
+        function openCloudConfigModal(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const input = document.getElementById('firebase-db-url');
+            if (input) input.value = getActiveCloudUrl();
+            const modal = document.getElementById('modal-cloud');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('is-open');
+                modal.style.display = 'flex';
+            }
+            refreshIconsSafe();
+        }
+
+        function saveCloudConfig(e) {
+            e.preventDefault();
+            const rawUrl = document.getElementById('firebase-db-url').value.trim().replace(/\/+$/, '');
+            if (!rawUrl.startsWith('https://')) {
+                showToast('URL Firebase harus diawali dengan https://');
+                return;
+            }
+            localStorage.setItem(CLOUD_URL_KEY, rawUrl);
+            closeModal('modal-cloud');
+            showToast('Menghubungkan ke Cloud...');
+            setTimeout(() => window.location.reload(), 500);
+        }
+
+        function disconnectCloud() {
+            localStorage.removeItem(CLOUD_URL_KEY);
+            isCloudConnected = false;
+            updateCloudStatusUI();
+            closeModal('modal-cloud');
+            showToast('Koneksi Cloud diputuskan. Kembali ke mode lokal.');
+        }
+
+        // ==========================================
+        // INITIALIZATION & EVENT DELEGATION
+        // ==========================================
+        function refreshIconsSafe() {
+            try {
+                if (typeof lucide !== 'undefined' && lucide && typeof lucide.createIcons === 'function') {
+                    lucide.createIcons();
+                }
+            } catch (e) {
+                console.warn('Lucide icon warning:', e);
+            }
+        }
+
+        function bindDelegatedInteractions() {
+            document.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!target || typeof target.closest !== 'function') return;
+
+                const openQrBtn = target.closest('[data-action="open-qr"], #btn-open-qr-landing');
+                if (openQrBtn) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openQrModal(event);
+                    return;
+                }
+
+                const closeBtn = target.closest('[data-close-modal]');
+                if (closeBtn) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const targetModalId = closeBtn.getAttribute('data-close-modal');
+                    if (targetModalId) closeModal(targetModalId, event);
+                    return;
+                }
+
+                if (target.classList && target.classList.contains('app-modal-backdrop')) {
+                    const modalId = target.id;
+                    if (modalId) closeModal(modalId, event);
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeModal('modal-qr');
+                    closeModal('modal-cloud');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            bindDelegatedInteractions();
+            refreshIconsSafe();
+            loadStateFromStorage();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const cloudFromUrl = urlParams.get('db');
+            if (cloudFromUrl) {
+                localStorage.setItem(CLOUD_URL_KEY, cloudFromUrl.trim());
+            }
+
+            if (urlParams.has('pasien') || urlParams.has('scan')) {
+                setExplicitLogoutFlag(true);
+                appState.currentUsername = null;
+                appState.currentDoctorUsername = null;
+                try {
+                    const cleanUrl = window.location.href.split('?')[0].split('#')[0];
+                    const nextParams = new URLSearchParams();
+                    const activeDb = getActiveCloudUrl();
+                    if (activeDb) nextParams.set('db', activeDb);
+                    const finalUrl = nextParams.toString() ? `${cleanUrl}?${nextParams.toString()}` : cleanUrl;
+                    window.history.replaceState({}, document.title, finalUrl);
+                } catch (e) {}
+            }
+
+            initCloudSync();
+            populateDoctorSelectOptions();
+            generateQrCode();
+
+            if (restoreActiveSession()) {
+                if (appState.currentDoctorUsername) {
+                    enterVetPortal();
+                } else if (appState.currentUsername) {
+                    enterPatientCard();
+                }
+            } else {
+                isSessionAuthenticated = false;
+                appState.currentUsername = null;
+                appState.currentDoctorUsername = null;
+                appState.selectedVetUsername = null;
+                navigateTo('landing');
+            }
+
+            document.querySelectorAll('input, textarea, select').forEach(el => {
+                el.addEventListener('focus', () => { isUserEditingForm = true; });
+                el.addEventListener('blur', () => { setTimeout(() => { isUserEditingForm = false; }, 400); });
+            });
+        });
+
+        // ==========================================
+        // NAVIGATION & MODAL HELPERS
+        // ==========================================
+        function navigateTo(viewName, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            ['view-landing', 'view-login', 'view-vet-auth', 'view-patient', 'view-vet'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            const target = document.getElementById(`view-${viewName}`);
+            if (target) target.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            refreshIconsSafe();
+        }
+
+        function closeModal(modalId, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const el = document.getElementById(modalId);
+            if (el) {
+                el.classList.add('hidden');
+                el.classList.remove('is-open');
+                el.style.display = 'none';
+            }
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const text = document.getElementById('toast-message');
+            if (!toast || !text) return;
+            text.textContent = msg;
+            toast.classList.remove('hidden');
+            refreshIconsSafe();
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3400);
+        }
+
+        // ==========================================
+        // AUTENTIKASI PASIEN
+        // ==========================================
+        function getCurrentAccount() {
+            if (!isSessionAuthenticated || !appState.currentUsername) return null;
+            return appState.accounts[appState.currentUsername] || null;
+        }
+
+        function goToLogin(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            setExplicitLogoutFlag(false);
+            if (isSessionAuthenticated && getCurrentAccount()) {
+                enterPatientCard();
+            } else {
+                isSessionAuthenticated = false;
+                appState.currentUsername = null;
+                populateDoctorSelectOptions();
+                switchAuthTab('login');
+                navigateTo('login', event);
+            }
+        }
+
+        function switchAuthTab(tab) {
+            const tabLogin = document.getElementById('auth-tab-login');
+            const tabReg = document.getElementById('auth-tab-register');
+            const formLogin = document.getElementById('form-auth-login');
+            const formReg = document.getElementById('form-auth-register');
+
+            if (tab === 'login') {
+                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition cursor-pointer';
+                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition cursor-pointer';
+                formLogin.classList.remove('hidden');
+                formReg.classList.add('hidden');
+            } else {
+                populateDoctorSelectOptions();
+                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition cursor-pointer';
+                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition cursor-pointer';
+                formReg.classList.remove('hidden');
+                formLogin.classList.add('hidden');
+            }
+        }
+
+        function populateDoctorSelectOptions() {
+            const select = document.getElementById('reg-dokter');
+            if (!select) return;
+            const docs = Object.values(appState.doctors || {});
+
+            if (docs.length === 0) {
+                select.innerHTML = `<option value="">-- Belum ada dokter terdaftar (Daftar akun Dokter dulu) --</option>`;
+                return;
+            }
+
+            const currentVal = select.value;
+            select.innerHTML = docs.map(doc =>
+                `<option value="${escapeHtml(doc.username)}">${escapeHtml(doc.fullName)}${doc.clinic ? ' (' + escapeHtml(doc.clinic) + ')' : ''}</option>`
+            ).join('');
+            if (currentVal && appState.doctors[currentVal]) {
+                select.value = currentVal;
+            }
+        }
+
+        function findAccountByCredential(rawUsername) {
+            const clean = String(rawUsername || '').trim().toLowerCase().replace(/\s+/g, '');
+            if (!clean) return null;
+            if (appState.accounts[clean]) return appState.accounts[clean];
+            return Object.values(appState.accounts || {}).find(acc => {
+                if (!acc) return false;
+                const u = String(acc.username || '').trim().toLowerCase().replace(/\s+/g, '');
+                const p = String(acc.namaPasien || '').trim().toLowerCase().replace(/\s+/g, '');
+                return u === clean || p === clean;
+            }) || null;
+        }
+
+        function findDoctorByCredential(rawUsername) {
+            const clean = String(rawUsername || '').trim().toLowerCase().replace(/\s+/g, '');
+            if (!clean) return null;
+            if (appState.doctors[clean]) return appState.doctors[clean];
+            return Object.values(appState.doctors || {}).find(doc => {
+                if (!doc) return false;
+                const u = String(doc.username || '').trim().toLowerCase().replace(/\s+/g, '');
+                return u === clean;
+            }) || null;
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const rawInput = document.getElementById('login-username').value;
+            const password = String(document.getElementById('login-password').value || '').trim();
+
+            let acc = findAccountByCredential(rawInput);
+            if (!acc && getActiveCloudUrl()) {
+                const remoteData = await fetchCloudOnceViaRest();
+                if (remoteData) {
+                    applyRemoteSnapshot(remoteData);
+                    acc = findAccountByCredential(rawInput);
+                }
+            }
+
+            if (!acc) {
+                showToast('Nama akun pasien tidak ditemukan. Silakan daftar pasien baru.');
+                return;
+            }
+            if (String(acc.password || '').trim() !== password) {
+                showToast('Password salah. Periksa kembali password Anda.');
+                return;
+            }
+
+            setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
+            appState.currentUsername = acc.username;
+            persistActiveSession();
+            saveStateToStorage();
+            enterPatientCard();
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const username = document.getElementById('reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
+            const password = String(document.getElementById('reg-password').value || '').trim();
+            const namaPasien = document.getElementById('reg-nama-pasien').value.trim();
+            const namaOwner = document.getElementById('reg-nama-owner').value.trim();
+            const usia = document.getElementById('reg-usia').value.trim();
+            const dokterUsername = document.getElementById('reg-dokter').value;
+
+            if (!username || !password) {
+                showToast('Nama akun dan password wajib diisi.');
+                return;
+            }
+            if (!dokterUsername || !appState.doctors[dokterUsername]) {
+                showToast('Pilih Dokter Penanggung Jawab terlebih dahulu (atau buat akun dokter dulu).');
+                return;
+            }
+            if (findAccountByCredential(username)) {
+                showToast('Nama akun sudah dipakai. Gunakan nama akun lain.');
+                return;
+            }
+
+            const todayIso = getTodayIso();
+            const startIso = addDaysIso(todayIso, 1);
+            const doc = appState.doctors[dokterUsername];
+
+            appState.accounts[username] = {
+                username,
+                password,
+                namaPasien,
+                namaOwner,
+                usia,
+                dokterUsername,
+                jenisObat: '',
+                mingguKe: '1',
+                jadwalKontrol: formatIndoDateFromIso(addDaysIso(startIso, 7)),
+                registeredDateIso: todayIso,
+                cycleStartDateIso: startIso,
+                monitoringStatus: 'not_started',
+                selectedDay: 1,
+                viewingHistoryWhilePaused: false,
+                records: {},
+                vetEvaluations: []
+            };
+
+            setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
+            appState.currentUsername = username;
+            persistActiveSession();
+            saveStateToStorage();
+            document.getElementById('form-auth-register').reset();
+            showToast(`Akun ${namaPasien} berhasil dibuat! Menunggu ${doc ? doc.fullName : 'dokter'} mengaktifkan Mulai Pantau.`);
+            enterPatientCard();
+        }
+
+        function logoutPatient(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            setExplicitLogoutFlag(true);
+            isSessionAuthenticated = false;
+            appState.currentUsername = null;
+            persistActiveSession();
+            saveStateToStorage(false);
+            navigateTo('landing', event);
+            showToast('Anda telah keluar dari akun pasien.');
+        }
+
+        // ==========================================
+        // AUTENTIKASI DOKTER HEWAN
+        // ==========================================
+        function getCurrentDoctor() {
+            if (!isSessionAuthenticated || !appState.currentDoctorUsername) return null;
+            return appState.doctors[appState.currentDoctorUsername] || null;
+        }
+
+        function openVetPortal(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            setExplicitLogoutFlag(false);
+            if (isSessionAuthenticated && getCurrentDoctor()) {
+                enterVetPortal();
+            } else {
+                isSessionAuthenticated = false;
+                appState.currentDoctorUsername = null;
+                switchVetAuthTab('login');
+                navigateTo('vet-auth', event);
+            }
+        }
+
+        function switchVetAuthTab(tab) {
+            const tabLogin = document.getElementById('vet-auth-tab-login');
+            const tabReg = document.getElementById('vet-auth-tab-register');
+            const formLogin = document.getElementById('form-vet-login');
+            const formReg = document.getElementById('form-vet-register');
+
+            if (tab === 'login') {
+                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition cursor-pointer';
+                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition cursor-pointer';
+                formLogin.classList.remove('hidden');
+                formReg.classList.add('hidden');
+            } else {
+                tabReg.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition cursor-pointer';
+                tabLogin.className = 'py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition cursor-pointer';
+                formReg.classList.remove('hidden');
+                formLogin.classList.add('hidden');
+            }
+        }
+
+        async function handleVetLogin(e) {
+            e.preventDefault();
+            const rawInput = document.getElementById('vet-login-username').value;
+            const password = String(document.getElementById('vet-login-password').value || '').trim();
+
+            let doc = findDoctorByCredential(rawInput);
+            if (!doc && getActiveCloudUrl()) {
+                const remoteData = await fetchCloudOnceViaRest();
+                if (remoteData) {
+                    applyRemoteSnapshot(remoteData);
+                    doc = findDoctorByCredential(rawInput);
+                }
+            }
+
+            if (!doc) {
+                showToast('Username dokter tidak ditemukan. Silakan daftar dokter baru.');
+                return;
+            }
+            if (String(doc.password || '').trim() !== password) {
+                showToast('Password dokter salah.');
+                return;
+            }
+
+            setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
+            appState.currentDoctorUsername = doc.username;
+            persistActiveSession();
+            saveStateToStorage();
+            enterVetPortal();
+        }
+
+        function handleVetRegister(e) {
+            e.preventDefault();
+            const fullName = document.getElementById('vet-reg-fullname').value.trim();
+            const username = document.getElementById('vet-reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
+            const password = String(document.getElementById('vet-reg-password').value || '').trim();
+            const clinic = document.getElementById('vet-reg-sip').value.trim();
+
+            if (!username || !password) {
+                showToast('Username dan password dokter wajib diisi.');
+                return;
+            }
+            if (findDoctorByCredential(username)) {
+                showToast('Username dokter sudah terdaftar.');
+                return;
+            }
+
+            appState.doctors[username] = {
+                username,
+                password,
+                fullName,
+                clinic
+            };
+
+            setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
+            appState.currentDoctorUsername = username;
+            persistActiveSession();
+            saveStateToStorage();
+            populateDoctorSelectOptions();
+            showToast(`Selamat datang, ${fullName}!`);
+            enterVetPortal();
+        }
+
+        function logoutVet(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            setExplicitLogoutFlag(true);
+            isSessionAuthenticated = false;
+            appState.currentDoctorUsername = null;
+            appState.selectedVetUsername = null;
+            persistActiveSession();
+            saveStateToStorage(false);
+            navigateTo('landing', event);
+            showToast('Anda telah keluar dari portal dokter.');
+        }
+
+        // ==========================================
+        // LOGIKA KARTU PEMANTAUAN HARIAN PASIEN
+        // ==========================================
+        function computePatientScheduleState(acc) {
+            const todayIso = getTodayIso();
+            const startIso = acc.cycleStartDateIso || addDaysIso(acc.registeredDateIso || todayIso, 1);
+            const diff = diffDaysIso(startIso, todayIso);
+
+            if (isMonitoringNotStarted(acc)) {
+                return { mode: 'not_started', activeDay: 1, startIso };
+            }
+
+            if (acc.monitoringStatus === 'stopped_by_vet') {
+                return { mode: 'stopped_by_vet', activeDay: 7, startIso };
+            }
+
+            if (diff < 0) {
+                return { mode: 'waiting_tomorrow', activeDay: 1, startIso };
+            }
+
+            if (diff >= 7) {
+                return { mode: 'completed_control', activeDay: 7, startIso };
+            }
+
+            return { mode: 'active', activeDay: diff + 1, startIso };
+        }
+
+        function activateTodayForm() {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+            const todayIso = getTodayIso();
+            acc.cycleStartDateIso = todayIso;
+            acc.monitoringStatus = 'active';
+            acc.selectedDay = 1;
+            acc.viewingHistoryWhilePaused = false;
+            saveStateToStorage();
+            renderDayPills();
+            updatePatientScreenState();
+            showToast('Formulir Hari ke-1 sudah diaktifkan untuk hari ini!');
+        }
+
+        function enterPatientCard() {
+            const acc = getCurrentAccount();
+            if (!acc) {
+                goToLogin();
+                return;
+            }
+
+            acc.records = normalizeRecordsMap(acc.records);
+            const doc = appState.doctors[acc.dokterUsername];
+
+            const badgeEl = document.getElementById('active-account-badge');
+            const docHeaderEl = document.getElementById('header-doctor-name');
+            if (badgeEl) badgeEl.textContent = acc.namaPasien || 'Pasien';
+            if (docHeaderEl) docHeaderEl.textContent = doc ? doc.fullName : 'Dokter Hewan';
+
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+            setVal('id-nama-pasien', acc.namaPasien || '');
+            setVal('id-nama-owner', acc.namaOwner || '');
+            setVal('id-usia', acc.usia || '');
+            setVal('id-jenis-obat', acc.jenisObat || '');
+            setVal('id-minggu-ke', acc.mingguKe || '1');
+            setVal('id-jadwal-kontrol', acc.jadwalKontrol || '');
+
+            const sched = computePatientScheduleState(acc);
+            if (!acc.selectedDay || acc.selectedDay < 1 || acc.selectedDay > 7 || sched.mode === 'active') {
+                acc.selectedDay = sched.activeDay;
+            }
+
+            generateQrCode(acc);
+            renderPatientVetFeedback(acc);
+            renderDayPills();
+            updatePatientScreenState();
+            navigateTo('patient');
+        }
+
+        function savePatientTherapyFields() {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+            const obatEl = document.getElementById('id-jenis-obat');
+            const mingguEl = document.getElementById('id-minggu-ke');
+            const jadwalEl = document.getElementById('id-jadwal-kontrol');
+            if (obatEl) acc.jenisObat = obatEl.value;
+            if (mingguEl) acc.mingguKe = mingguEl.value;
+            if (jadwalEl) acc.jadwalKontrol = jadwalEl.value;
+            saveStateToStorage();
+        }
+
+        function updatePatientScreenState() {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+
+            const sched = computePatientScheduleState(acc);
+            const notStartedBox = document.getElementById('state-waiting-vet-start');
+            const waitBox = document.getElementById('state-waiting-tomorrow');
+            const pauseBox = document.getElementById('state-paused-control');
+            const dailyForm = document.getElementById('daily-form');
+            const simBar = document.getElementById('patient-sim-bar');
+
+            if (notStartedBox) notStartedBox.classList.add('hidden');
+            if (waitBox) waitBox.classList.add('hidden');
+            if (pauseBox) pauseBox.classList.add('hidden');
+            if (dailyForm) dailyForm.classList.add('hidden');
+
+            if (sched.mode === 'not_started') {
+                if (simBar) simBar.classList.add('hidden');
+                const doc = appState.doctors[acc.dokterUsername];
+                const docName = doc ? doc.fullName : 'Dokter Penanggung Jawab';
+                const descEl = document.getElementById('waiting-vet-start-desc');
+                if (descEl) {
+                    descEl.innerHTML = `Akun kucing <strong>${escapeHtml(acc.namaPasien)}</strong> sudah terdaftar. Formulir pemantauan harian belum dapat diisi karena fitur <strong>Mulai Pantau</strong> belum diaktifkan oleh <strong>${escapeHtml(docName)}</strong>.`;
+                }
+                if (notStartedBox) notStartedBox.classList.remove('hidden');
+                refreshIconsSafe();
+                return;
+            }
+
+            if (simBar) simBar.classList.remove('hidden');
+
+            if (sched.mode === 'waiting_tomorrow') {
+                const startEl = document.getElementById('waiting-start-date');
+                if (startEl) startEl.textContent = formatIndoDateFromIso(sched.startIso);
+                if (waitBox) waitBox.classList.remove('hidden');
+                return;
+            }
+
+            if ((sched.mode === 'completed_control' || sched.mode === 'stopped_by_vet') && !acc.viewingHistoryWhilePaused) {
+                const badgeEl = document.getElementById('paused-badge-label');
+                const titleEl = document.getElementById('paused-main-title');
+                const descEl = document.getElementById('paused-description');
+                if (sched.mode === 'stopped_by_vet') {
+                    if (badgeEl) badgeEl.textContent = 'Dihentikan oleh Dokter Hewan';
+                    if (titleEl) titleEl.textContent = 'Pemantauan Dihentikan Sementara';
+                    if (descEl) descEl.textContent = 'Dokter penanggung jawab telah menghentikan siklus pemantauan harian sementara. Formulir akan aktif kembali apabila dokter menekan tombol Mulai Pantau.';
+                } else {
+                    if (badgeEl) badgeEl.textContent = 'Hari Kontrol Klinik • Sistem Berhenti Sementara';
+                    if (titleEl) titleEl.textContent = 'Kontrol Seminggu Selesai';
+                    if (descEl) descEl.textContent = 'Pemantauan 7 hari telah selesai dan waktunya hari ini kontrol ke dokter hewan. Formulir harian otomatis berhenti sementara menunggu keputusan dokter setelah pemeriksaan.';
+                }
+                if (pauseBox) pauseBox.classList.remove('hidden');
+                return;
+            }
+
+            if (dailyForm) dailyForm.classList.remove('hidden');
+            loadDayForm(acc.selectedDay || sched.activeDay);
+        }
+
+        function viewPastRecordsWhilePaused() {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+            acc.viewingHistoryWhilePaused = true;
+            acc.selectedDay = 1;
+            renderDayPills();
+            updatePatientScreenState();
+        }
+
+        function renderDayPills() {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+            const container = document.getElementById('day-pills');
+            if (!container) return;
+
+            const records = normalizeRecordsMap(acc.records);
+            const sched = computePatientScheduleState(acc);
+            const activePillDay = acc.selectedDay || sched.activeDay;
+
+            let html = '';
+            for (let day = 1; day <= 7; day++) {
+                const hasRecord = !!records[day];
+                const isSelected = activePillDay === day;
+
+                let btnClass = 'py-1.5 rounded-lg text-xs font-extrabold border transition cursor-pointer ';
+                if (isSelected) {
+                    btnClass += 'bg-medNavy text-white border-medNavy shadow-xs';
+                } else if (hasRecord) {
+                    btnClass += 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100';
+                } else {
+                    btnClass += 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50';
+                }
+
+                html += `<button type="button" onclick="selectPatientDay(${day})" class="${btnClass}">${day}</button>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function selectPatientDay(day) {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+
+            const sched = computePatientScheduleState(acc);
+            if (sched.mode === 'not_started') {
+                showToast('Menunggu dokter mengaktifkan fitur Mulai Pantau.');
+                return;
+            }
+            if (sched.mode === 'waiting_tomorrow') {
+                showToast('Klik "Mulai Isi Formulir Hari Ini" atau tunggu mulai aktif besok.');
+                return;
+            }
+            if (sched.mode === 'active' && day > sched.activeDay) {
+                showToast(`Hari ke-${day} belum terbuka. Formulir berganti otomatis setiap 24 jam.`);
+                return;
+            }
+
+            acc.selectedDay = day;
+            renderDayPills();
+            loadDayForm(day);
+        }
+
+        function toggleMakanOption(waktu, pilihan) {
+            const habisEl = document.getElementById(`${waktu}-habis`);
+            const sisaEl = document.getElementById(`${waktu}-sisa-check`);
+            if (pilihan === 'habis' && habisEl && habisEl.checked && sisaEl) {
+                sisaEl.checked = false;
+            } else if (pilihan === 'sisa' && sisaEl && sisaEl.checked && habisEl) {
+                habisEl.checked = false;
+            }
+        }
+
+        function toggleGroup(groupName, selectedValue) {
+            const options = groupName === 'bab'
+                ? ['normal', 'lembek', 'diare']
+                : ['aktif', 'grooming', 'lesu'];
+
+            options.forEach(opt => {
+                if (opt !== selectedValue) {
+                    const el = document.getElementById(`${groupName}-${opt}`);
+                    if (el) el.checked = false;
+                }
+            });
+        }
+
+        function handleMediaUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.size > 4 * 1024 * 1024) {
+                showToast('Ukuran foto/video maksimal 4 MB agar cepat tersimpan.');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentUploadedMedia = {
+                    name: file.name,
+                    type: file.type.startsWith('video/') ? 'video' : 'image',
+                    dataUrl: e.target.result
+                };
+                renderMediaPreview(currentUploadedMedia);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderMediaPreview(media) {
+            const wrapper = document.getElementById('media-preview-wrapper');
+            const img = document.getElementById('media-preview-img');
+            const vid = document.getElementById('media-preview-video');
+            const nameEl = document.getElementById('media-file-name');
+
+            if (!wrapper || !img || !vid || !nameEl) return;
+
+            if (!media || !media.dataUrl) {
+                wrapper.classList.add('hidden');
+                img.classList.add('hidden');
+                vid.classList.add('hidden');
+                return;
+            }
+
+            wrapper.classList.remove('hidden');
+            nameEl.textContent = media.name || 'lampiran';
+
+            if (media.type === 'video') {
+                img.classList.add('hidden');
+                vid.src = media.dataUrl;
+                vid.classList.remove('hidden');
+            } else {
+                vid.classList.add('hidden');
+                img.src = media.dataUrl;
+                img.classList.remove('hidden');
+            }
+            refreshIconsSafe();
+        }
+
+        function removeMediaAttachment() {
+            currentUploadedMedia = null;
+            const input = document.getElementById('catatan-media-input');
+            if (input) input.value = '';
+            renderMediaPreview(null);
+        }
+
+        function loadDayForm(day) {
+            const acc = getCurrentAccount();
+            if (!acc) return;
+
+            const records = normalizeRecordsMap(acc.records);
+            const sched = computePatientScheduleState(acc);
+            const dayDateIso = addDaysIso(sched.startIso, day - 1);
+
+            const dayLabelEl = document.getElementById('display-day-label');
+            const dateEl = document.getElementById('display-date');
+            if (dayLabelEl) dayLabelEl.textContent = `Hari ${day} (dari 7)`;
+            if (dateEl) dateEl.textContent = formatIndoDateFromIso(dayDateIso);
+
+            const rec = records[day] || null;
+            const badge = document.getElementById('status-badge');
+
+            if (badge) {
+                if (rec) {
+                    badge.textContent = 'Sudah Tersimpan';
+                    badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+                } else {
+                    badge.textContent = 'Form Kosong';
+                    badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+                }
+            }
+
+            const setCheck = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.checked = !!val;
+            };
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+
+            setCheck('pagi-habis', rec ? rec.pagiHabis : false);
+            setCheck('pagi-sisa-check', rec ? rec.pagiSisaCheck : false);
+            setVal('pagi-sisa-text', rec ? (rec.pagiSisaText || '') : '');
+            setVal('pagi-jam', rec ? (rec.pagiJam || '') : '');
+            setVal('pagi-u', rec ? (rec.pagiU || '') : '');
+
+            setCheck('malam-habis', rec ? rec.malamHabis : false);
+            setCheck('malam-sisa-check', rec ? rec.malamSisaCheck : false);
+            setVal('malam-sisa-text', rec ? (rec.malamSisaText || '') : '');
+            setVal('malam-jam', rec ? (rec.malamJam || '') : '');
+            setVal('malam-u', rec ? (rec.malamU || '') : '');
+
+            setVal('pantauan-minum', rec ? (rec.minum || '') : '');
+            setVal('pantauan-pipis', rec ? (rec.pipis || '') : '');
+
+            ['normal', 'lembek', 'diare'].forEach(opt => {
+                setCheck(`bab-${opt}`, rec ? rec.bab === opt : false);
+            });
+            ['aktif', 'grooming', 'lesu'].forEach(opt => {
+                setCheck(`aktivitas-${opt}`, rec ? rec.aktivitas === opt : false);
+            });
+
+            setCheck('bahaya-tolak', rec ? rec.bahayaTolak : false);
+            setCheck('bahaya-muntah', rec ? rec.bahayaMuntah : false);
+            setCheck('bahaya-lemas', rec ? rec.bahayaLemas : false);
+
+            setVal('catatan-harian', rec ? (rec.catatan || '') : '');
+            currentUploadedMedia = rec && rec.media ? rec.media : null;
+            renderMediaPreview(currentUploadedMedia);
+        }
+
+        function saveCurrentDay(e) {
+            e.preventDefault();
+            const acc = getCurrentAccount();
+            if (!acc) return;
+
+            const sched = computePatientScheduleState(acc);
+            if (sched.mode === 'not_started') {
+                showToast('Formulir belum diaktifkan oleh dokter penanggung jawab.');
+                return;
+            }
+
+            const day = acc.selectedDay || sched.activeDay;
+            const dayDateIso = addDaysIso(sched.startIso, day - 1);
+
+            let babVal = '';
+            ['normal', 'lembek', 'diare'].forEach(opt => {
+                const el = document.getElementById(`bab-${opt}`);
+                if (el && el.checked) babVal = opt;
+            });
+
+            let aktivitasVal = '';
+            ['aktif', 'grooming', 'lesu'].forEach(opt => {
+                const el = document.getElementById(`aktivitas-${opt}`);
+                if (el && el.checked) aktivitasVal = opt;
+            });
+
+            const checkVal = (id) => {
+                const el = document.getElementById(id);
+                return !!(el && el.checked);
+            };
+            const inputVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? el.value : '';
+            };
+
+            acc.monitoringStatus = 'active';
+            acc.selectedDay = day;
+            acc.records = normalizeRecordsMap(acc.records);
+            acc.records[day] = {
+                day,
+                dateIso: dayDateIso,
+                dateLabel: formatIndoDateFromIso(dayDateIso),
+                pagiHabis: checkVal('pagi-habis'),
+                pagiSisaCheck: checkVal('pagi-sisa-check'),
+                pagiSisaText: inputVal('pagi-sisa-text').trim(),
+                pagiJam: inputVal('pagi-jam'),
+                pagiU: inputVal('pagi-u').trim(),
+                malamHabis: checkVal('malam-habis'),
+                malamSisaCheck: checkVal('malam-sisa-check'),
+                malamSisaText: inputVal('malam-sisa-text').trim(),
+                malamJam: inputVal('malam-jam'),
+                malamU: inputVal('malam-u').trim(),
+                minum: inputVal('pantauan-minum'),
+                pipis: inputVal('pantauan-pipis'),
+                bab: babVal,
+                aktivitas: aktivitasVal,
+                bahayaTolak: checkVal('bahaya-tolak'),
+                bahayaMuntah: checkVal('bahaya-muntah'),
+                bahayaLemas: checkVal('bahaya-lemas'),
+                catatan: inputVal('catatan-harian').trim(),
+                media: currentUploadedMedia,
+                savedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            isUserEditingForm = false;
+            saveStateToStorage();
+            renderDayPills();
+            updatePatientScreenState();
+            loadDayForm(day);
+            showToast(`Laporan Hari ke-${day} berhasil disimpan!`);
+        }
+
+        function renderPatientVetFeedback(acc) {
+            const box = document.getElementById('patient-vet-feedback-box');
+            if (!box || !acc) return;
+
+            const evals = normalizeEvaluationsList(acc.vetEvaluations);
+            if (evals.length === 0) {
+                box.classList.add('hidden');
+                return;
+            }
+
+            const latest = evals[0];
+            box.classList.remove('hidden');
+            const commentEl = document.getElementById('patient-vet-comment-text');
+            const authorEl = document.getElementById('patient-vet-author');
+            const timeEl = document.getElementById('patient-vet-time');
+            const badge = document.getElementById('patient-vet-status-badge');
+
+            if (commentEl) commentEl.textContent = latest.comment || '-';
+            if (authorEl) authorEl.textContent = latest.doctorName || 'Dokter Hewan';
+            if (timeEl) timeEl.textContent = latest.timestamp || '';
+
+            if (badge) {
+                badge.textContent = latest.status || 'Lanjutkan Terapi';
+                if (latest.status === 'Segera Bawa ke Klinik') {
+                    badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300';
+                } else if (latest.status === 'Sesuaikan Dosis') {
+                    badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+                } else {
+                    badge.className = 'text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+                }
+            }
+        }
+
+        // ==========================================
+        // PORTAL DOKTER HEWAN (TERISOLASI PER DOKTER)
+        // ==========================================
+        function normalizeKeyStr(val) {
+            return String(val || '').trim().toLowerCase().replace(/\s+/g, '');
+        }
+
+        function getDoctorPatients(doctorUsername) {
+            const targetDocKey = normalizeKeyStr(doctorUsername);
+            const currentDocObj = appState.doctors[doctorUsername] || findDoctorByCredential(doctorUsername);
+            const targetDocName = normalizeKeyStr(currentDocObj && currentDocObj.fullName);
+
+            return Object.values(appState.accounts || {}).filter(acc => {
+                if (!acc) return false;
+                const accDocKey = normalizeKeyStr(acc.dokterUsername);
+                if (targetDocKey && accDocKey === targetDocKey) return true;
+                if (targetDocName && accDocKey === targetDocName) return true;
+                return false;
+            });
+        }
+
+        function hasPatientDanger(acc) {
+            const records = normalizeRecordsMap(acc && acc.records);
+            return Object.values(records).some(r => r && (r.bahayaTolak || r.bahayaMuntah || r.bahayaLemas));
+        }
+
+        function isPatientCompletedOrStopped(acc) {
+            const sched = computePatientScheduleState(acc);
+            return sched.mode === 'completed_control' || sched.mode === 'stopped_by_vet';
+        }
+
+        function enterVetPortal() {
+            const doc = getCurrentDoctor();
+            if (!doc) {
+                navigateTo('vet-auth');
+                return;
+            }
+
+            const nameEl = document.getElementById('logged-vet-display-name');
+            const clinicEl = document.getElementById('logged-vet-clinic-info');
+            const senderEl = document.getElementById('btn-vet-sender-name');
+            if (nameEl) nameEl.textContent = doc.fullName;
+            if (clinicEl) clinicEl.textContent = doc.clinic ? `• ${doc.clinic}` : '';
+            if (senderEl) senderEl.textContent = doc.fullName;
+
+            appState.selectedVetUsername = null;
+            document.getElementById('vet-detail-panel').classList.add('hidden');
+            document.getElementById('vet-list-panel').classList.remove('hidden');
+
+            renderVetPatientList();
+            navigateTo('vet');
+
+            if (getActiveCloudUrl()) {
+                fetchCloudOnceViaRest().then(remoteData => {
+                    if (remoteData) applyRemoteSnapshot(remoteData);
+                });
+            }
+        }
+
+        function setVetFilter(filter) {
+            appState.vetFilter = filter;
+            document.querySelectorAll('.vet-filter-btn').forEach(btn => {
+                btn.className = 'vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-medNavy transition cursor-pointer';
+            });
+            const activeBtn = document.getElementById(`filter-btn-${filter}`);
+            if (activeBtn) {
+                activeBtn.className = 'vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-medNavy text-white transition cursor-pointer';
+            }
+            renderVetPatientList();
+        }
+
+        function renderVetPatientList() {
+            const doc = getCurrentDoctor();
+            if (!doc) return;
+
+            const allPatients = getDoctorPatients(doc.username);
+            const notStartedCount = allPatients.filter(p => isMonitoringNotStarted(p)).length;
+            const dangerCount = allPatients.filter(p => hasPatientDanger(p)).length;
+            const completedCount = allPatients.filter(p => isPatientCompletedOrStopped(p)).length;
+
+            const statTotalEl = document.getElementById('vet-stat-total');
+            const statNotStartedEl = document.getElementById('vet-stat-not-started');
+            const statDangerEl = document.getElementById('vet-stat-danger');
+            const statCompletedEl = document.getElementById('vet-stat-completed');
+            if (statTotalEl) statTotalEl.textContent = allPatients.length;
+            if (statNotStartedEl) statNotStartedEl.textContent = notStartedCount;
+            if (statDangerEl) statDangerEl.textContent = dangerCount;
+            if (statCompletedEl) statCompletedEl.textContent = completedCount;
+
+            const searchInput = document.getElementById('vet-search-input');
+            const searchQ = (searchInput ? searchInput.value : '').trim().toLowerCase();
+
+            const filtered = allPatients.filter(p => {
+                if (searchQ) {
+                    const matchName = (p.namaPasien || '').toLowerCase().includes(searchQ);
+                    const matchOwner = (p.namaOwner || '').toLowerCase().includes(searchQ);
+                    if (!matchName && !matchOwner) return false;
+                }
+                if (appState.vetFilter === 'not_started') return isMonitoringNotStarted(p);
+                if (appState.vetFilter === 'danger') return hasPatientDanger(p);
+                if (appState.vetFilter === 'completed') return isPatientCompletedOrStopped(p);
+                return true;
+            });
+
+            const container = document.getElementById('vet-patient-cards');
+            if (!container) return;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500 text-xs sm:text-sm">
+                        Belum ada pasien kucing yang sesuai dengan filter atau pencarian Anda.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(p => {
+                const records = normalizeRecordsMap(p.records);
+                const filledCount = Object.keys(records).length;
+                const danger = hasPatientDanger(p);
+                const sched = computePatientScheduleState(p);
+
+                let statusBadge = '';
+                let quickActionBtn = '';
+
+                if (sched.mode === 'not_started') {
+                    statusBadge = `<span class="text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-full">🕒 Belum Mulai Pantau</span>`;
+                    quickActionBtn = `
+                        <button type="button" onclick="quickStartPatientMonitoring(event, '${escapeHtml(p.username)}')" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl shadow-2xs transition flex items-center justify-center gap-1.5 cursor-pointer">
+                            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                            <span>Mulai Pantau Sekarang</span>
+                        </button>
+                    `;
+                } else if (sched.mode === 'stopped_by_vet') {
+                    statusBadge = `<span class="text-[10px] font-extrabold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">⏸️ Dihentikan Dokter</span>`;
+                } else if (sched.mode === 'completed_control') {
+                    statusBadge = `<span class="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">✅ Waktunya Kontrol</span>`;
+                } else if (sched.mode === 'waiting_tomorrow') {
+                    statusBadge = `<span class="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">⏳ Mulai Besok</span>`;
+                } else {
+                    statusBadge = `<span class="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">● Hari ${sched.activeDay}/7</span>`;
+                }
+
+                return `
+                    <div onclick="openVetPatientDetail('${escapeHtml(p.username)}')" class="cursor-pointer bg-white hover:bg-blue-50/40 rounded-2xl border-2 ${danger ? 'border-red-300' : (sched.mode === 'not_started' ? 'border-blue-300' : 'border-slate-200 hover:border-medNavy')} p-4 shadow-xs transition space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <h3 class="font-display font-extrabold text-base text-medNavy">${escapeHtml(p.namaPasien)}</h3>
+                                    ${danger ? '<span class="text-[10px] font-extrabold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">⚠️ Bahaya</span>' : ''}
+                                </div>
+                                <p class="text-xs text-slate-500">Owner: <strong class="text-slate-700">${escapeHtml(p.namaOwner)}</strong> • Usia: ${escapeHtml(p.usia)}</p>
+                            </div>
+                            ${statusBadge}
+                        </div>
+
+                        <div class="bg-slate-50 rounded-xl px-3 py-2 text-xs flex items-center justify-between border border-slate-100">
+                            <span class="text-slate-600 truncate max-w-[65%]">Obat: <strong>${escapeHtml(p.jenisObat || 'Belum diisi')}</strong></span>
+                            <span class="font-bold text-medNavy">${filledCount}/7 Hari</span>
+                        </div>
+
+                        ${quickActionBtn}
+
+                        <div class="flex items-center justify-between text-[11px] text-blue-700 font-bold pt-0.5">
+                            <span>Buka Detail, Kendali & Evaluasi</span>
+                            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            refreshIconsSafe();
+        }
+
+        function activateMonitoringForPatient(acc) {
+            const todayIso = getTodayIso();
+            const currentWeek = parseInt(acc.mingguKe, 10);
+            const isFirstActivation = isMonitoringNotStarted(acc);
+            const nextWeek = isFirstActivation ? (isNaN(currentWeek) || currentWeek < 1 ? 1 : currentWeek) : ((isNaN(currentWeek) ? 1 : currentWeek) + 1);
+
+            acc.mingguKe = String(nextWeek);
+            acc.cycleStartDateIso = todayIso;
+            acc.jadwalKontrol = formatIndoDateFromIso(addDaysIso(todayIso, 7));
+            acc.monitoringStatus = 'active';
+            acc.selectedDay = 1;
+            acc.viewingHistoryWhilePaused = false;
+            if (isFirstActivation) {
+                acc.records = {};
+            }
+            return nextWeek;
+        }
+
+        function quickStartPatientMonitoring(event, patientUsername) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const doc = getCurrentDoctor();
+            const acc = appState.accounts[patientUsername];
+            if (!doc || !acc || normalizeKeyStr(acc.dokterUsername) !== normalizeKeyStr(doc.username)) return;
+
+            const week = activateMonitoringForPatient(acc);
+            saveStateToStorage();
+            renderVetPatientList();
+            showToast(`Fitur pemantauan minggu ke-${week} untuk ${acc.namaPasien} sudah diaktifkan!`);
+        }
+
+        function openVetPatientDetail(patientUsername) {
+            const doc = getCurrentDoctor();
+            const acc = appState.accounts[patientUsername];
+            if (!doc || !acc || normalizeKeyStr(acc.dokterUsername) !== normalizeKeyStr(doc.username)) {
+                showToast('Akses ditolak: pasien ini terdaftar pada dokter lain.');
+                return;
+            }
+
+            acc.records = normalizeRecordsMap(acc.records);
+            appState.selectedVetUsername = patientUsername;
+            document.getElementById('vet-list-panel').classList.add('hidden');
+            document.getElementById('vet-detail-panel').classList.remove('hidden');
+
+            document.getElementById('detail-patient-name').textContent = `${acc.namaPasien} (${acc.usia})`;
+            document.getElementById('detail-owner-info').textContent = `Pemilik (Owner): ${acc.namaOwner} • Minggu ke-${acc.mingguKe || '1'}`;
+            document.getElementById('detail-doctor-assigned').textContent = `Dokter Penanggung Jawab: ${doc.fullName}`;
+            document.getElementById('detail-med-info').textContent = acc.jenisObat || 'Obat belum diisi';
+            document.getElementById('detail-control-info').textContent = `Jadwal Kontrol: ${acc.jadwalKontrol || '-'}`;
+
+            const dangerPill = document.getElementById('detail-danger-pill');
+            if (hasPatientDanger(acc)) dangerPill.classList.remove('hidden');
+            else dangerPill.classList.add('hidden');
+
+            const sched = computePatientScheduleState(acc);
+            const monPill = document.getElementById('detail-monitoring-pill');
+            if (sched.mode === 'not_started') {
+                monPill.textContent = '🕒 Belum Mulai Pantau';
+                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300';
+            } else if (sched.mode === 'stopped_by_vet') {
+                monPill.textContent = '⏸️ Dihentikan oleh Dokter';
+                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-red-100 text-red-800 border border-red-300';
+            } else if (sched.mode === 'completed_control') {
+                monPill.textContent = '✅ Siklus 7 Hari Selesai (Hari Kontrol)';
+                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+            } else {
+                monPill.textContent = `● Pemantauan Aktif (Hari ${sched.activeDay}/7)`;
+                monPill.className = 'text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+            }
+
+            renderVetCharts(acc);
+            renderVetCommentHistory(acc);
+            renderVetDailyRecap(acc);
+            refreshIconsSafe();
+        }
+
+        function closeVetDetail() {
+            appState.selectedVetUsername = null;
+            document.getElementById('vet-detail-panel').classList.add('hidden');
+            document.getElementById('vet-list-panel').classList.remove('hidden');
+            renderVetPatientList();
+        }
+
+        function doctorStartMonitoring() {
+            const acc = appState.accounts[appState.selectedVetUsername];
+            if (!acc) return;
+
+            const nextWeek = activateMonitoringForPatient(acc);
+            saveStateToStorage();
+            openVetPatientDetail(acc.username);
+            showToast(`Pemantauan minggu ke-${nextWeek} untuk ${acc.namaPasien} telah diaktifkan!`);
+        }
+
+        function doctorStopMonitoring() {
+            const acc = appState.accounts[appState.selectedVetUsername];
+            if (!acc) return;
+
+            acc.monitoringStatus = 'stopped_by_vet';
+            acc.viewingHistoryWhilePaused = false;
+            saveStateToStorage();
+            openVetPatientDetail(acc.username);
+            showToast(`Pemantauan untuk ${acc.namaPasien} telah dihentikan sementara.`);
+        }
+
+        function renderVetCharts(acc) {
+            const records = normalizeRecordsMap(acc.records);
+            const minumValues = [];
+            const pipisValues = [];
+
+            for (let d = 1; d <= 7; d++) {
+                const r = records[d];
+                minumValues.push(r && r.minum ? Number(r.minum) : 0);
+                pipisValues.push(r && r.pipis ? Number(r.pipis) : 0);
+            }
+
+            const maxMinum = Math.max(...minumValues, 150);
+            const maxPipis = Math.max(...pipisValues, 6);
+
+            document.getElementById('chart-minum').innerHTML = minumValues.map((val, idx) => {
+                const pct = val > 0 ? Math.max(14, Math.round((val / maxMinum) * 100)) : 6;
+                const barColor = val > 0 ? 'bg-blue-500' : 'bg-slate-200';
+                return `
+                    <div class="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                        <span class="text-[9px] font-bold text-slate-600">${val > 0 ? val : '-'}</span>
+                        <div class="w-full max-w-[24px] rounded-t-md ${barColor} transition-all duration-300" style="height: ${pct}%"></div>
+                        <span class="text-[10px] font-bold text-slate-500">H${idx + 1}</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('chart-pipis').innerHTML = pipisValues.map((val, idx) => {
+                const pct = val > 0 ? Math.max(14, Math.round((val / maxPipis) * 100)) : 6;
+                const barColor = val > 0 ? 'bg-teal-500' : 'bg-slate-200';
+                return `
+                    <div class="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                        <span class="text-[9px] font-bold text-slate-600">${val > 0 ? val + 'x' : '-'}</span>
+                        <div class="w-full max-w-[24px] rounded-t-md ${barColor} transition-all duration-300" style="height: ${pct}%"></div>
+                        <span class="text-[10px] font-bold text-slate-500">H${idx + 1}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function submitVetEvaluation(e) {
+            e.preventDefault();
+            const doc = getCurrentDoctor();
+            const acc = appState.accounts[appState.selectedVetUsername];
+            if (!doc || !acc) return;
+
+            const statusRadio = document.querySelector('input[name="vet-status"]:checked');
+            const status = statusRadio ? statusRadio.value : 'Lanjutkan Terapi';
+            const comment = document.getElementById('vet-comment-input').value.trim();
+            if (!comment) return;
+
+            const evalList = normalizeEvaluationsList(acc.vetEvaluations);
+            evalList.unshift({
+                id: Date.now(),
+                doctorName: doc.fullName,
+                status,
+                comment,
+                timestamp: `${formatIndoDateFromIso(getTodayIso())} • ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+            });
+            acc.vetEvaluations = evalList;
+
+            document.getElementById('vet-comment-input').value = '';
+            saveStateToStorage();
+            renderVetCommentHistory(acc);
+            showToast('Evaluasi & komentar dokter berhasil dikirim ke kartu pasien!');
+        }
+
+        function renderVetCommentHistory(acc) {
+            const container = document.getElementById('vet-comment-history');
+            const evals = normalizeEvaluationsList(acc.vetEvaluations);
+
+            if (evals.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic">Belum ada komentar evaluasi untuk pasien ini.</p>`;
+                return;
+            }
+
+            container.innerHTML = evals.map(item => `
+                <div class="bg-blue-50/60 border border-blue-200 rounded-xl p-3 text-xs space-y-1">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-extrabold text-medNavy">${escapeHtml(item.status)}</span>
+                        <span class="text-[10px] text-slate-500">${escapeHtml(item.timestamp)}</span>
+                    </div>
+                    <p class="text-slate-700 leading-relaxed">${escapeHtml(item.comment)}</p>
+                    <div class="text-[10px] font-semibold text-blue-700">Oleh: ${escapeHtml(item.doctorName)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderVetDailyRecap(acc) {
+            const container = document.getElementById('vet-daily-recap-list');
+            const records = normalizeRecordsMap(acc.records);
+            let html = '';
+
+            for (let day = 1; day <= 7; day++) {
+                const r = records[day];
+                if (!r) {
+                    html += `
+                        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/70 flex items-center justify-between text-xs text-slate-400">
+                            <span class="font-bold">Hari ${day} (dari 7)</span>
+                            <span>Belum ada data diisi</span>
+                        </div>
+                    `;
+                    continue;
+                }
+
+                const dangerList = [];
+                if (r.bahayaTolak) dangerList.push('Tolak makan');
+                if (r.bahayaMuntah) dangerList.push('Muntah');
+                if (r.bahayaLemas) dangerList.push('Lemas/Sempoyongan');
+
+                const pagiMakan = r.pagiHabis ? 'Habis' : (r.pagiSisaCheck ? `Sisa (${r.pagiSisaText || '-'})` : '-');
+                const malamMakan = r.malamHabis ? 'Habis' : (r.malamSisaCheck ? `Sisa (${r.malamSisaText || '-'})` : '-');
+
+                let mediaHtml = '';
+                if (r.media && r.media.dataUrl) {
+                    mediaHtml = r.media.type === 'video'
+                        ? `<div class="mt-2"><video src="${r.media.dataUrl}" controls class="max-h-44 rounded-lg border border-slate-300"></video></div>`
+                        : `<div class="mt-2"><img src="${r.media.dataUrl}" alt="Lampiran Hari ${day}" class="max-h-44 rounded-lg border border-slate-300 object-contain"></div>`;
+                }
+
+                html += `
+                    <div class="border-2 ${dangerList.length ? 'border-red-300 bg-red-50/30' : 'border-slate-200 bg-white'} rounded-xl p-3.5 text-xs space-y-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-200">
+                            <span class="font-display font-extrabold text-medNavy text-sm">Hari ${day} (dari 7) — ${escapeHtml(r.dateLabel)}</span>
+                            ${dangerList.length
+                                ? `<span class="font-extrabold text-red-700 bg-red-100 px-2.5 py-0.5 rounded-full">⚠️ ${dangerList.join(', ')}</span>`
+                                : `<span class="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">Kondisi Stabil</span>`}
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
+                            <div>• <strong>Pagi:</strong> Makan ${escapeHtml(pagiMakan)} | Insulin ${escapeHtml(r.pagiJam || '-')} (${escapeHtml(r.pagiU || '0')} U)</div>
+                            <div>• <strong>Malam:</strong> Makan ${escapeHtml(malamMakan)} | Insulin ${escapeHtml(r.malamJam || '-')} (${escapeHtml(r.malamU || '0')} U)</div>
+                            <div>• <strong>Minum & Pipis:</strong> ${escapeHtml(r.minum || '0')} ml | ${escapeHtml(r.pipis || '0')}x gumpalan</div>
+                            <div>• <strong>BAB & Aktivitas:</strong> BAB ${escapeHtml(r.bab || '-')} | ${escapeHtml(r.aktivitas || '-')}</div>
+                        </div>
+
+                        ${r.catatan ? `<div class="bg-slate-100 rounded-lg p-2 text-slate-700"><strong>Catatan Owner:</strong> ${escapeHtml(r.catatan)}</div>` : ''}
+                        ${mediaHtml}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // ==========================================
+        // QR CODE & TAUTAN HALAMAN AWAL APLIKASI
+        // ==========================================
+        function buildShareableUrl() {
+            const baseUrl = window.location.href.split('?')[0].split('#')[0];
+            const params = new URLSearchParams();
+            const dbUrl = getActiveCloudUrl();
+            if (dbUrl && dbUrl !== DEFAULT_FIREBASE_DB_URL) {
+                params.set('db', dbUrl);
+            }
+            const query = params.toString();
+            return query ? `${baseUrl}?${query}` : baseUrl;
+        }
+
+        function generateQrCode() {
+            const qrContainer = document.getElementById('qrcode-canvas');
+            const labelEl = document.getElementById('qr-patient-label');
+            const captionEl = document.getElementById('qr-tag-caption');
+            if (!qrContainer) return;
+
+            qrContainer.innerHTML = '';
+            const targetUrl = buildShareableUrl();
+
+            if (labelEl) {
+                labelEl.textContent = 'HALAMAN AWAL • CAT DIABETIC CARE';
+            }
+            if (captionEl) {
+                captionEl.textContent = 'Scan QR Code atau buka link ini untuk membuka halaman pertama aplikasi Cat Diabetic Care di HP mana saja.';
+            }
+
+            let generated = false;
+            try {
+                if (typeof QRCode !== 'undefined') {
+                    new QRCode(qrContainer, {
+                        text: targetUrl,
+                        width: 170,
+                        height: 170,
+                        colorDark: '#1e3a5f',
+                        colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.M
+                    });
+                    generated = true;
+                }
+            } catch (e) {
+                console.warn('QRCode library fallback:', e);
+            }
+
+            if (!generated || !qrContainer.firstChild) {
+                const img = document.createElement('img');
+                img.src = `https://api.qrserver.com/v1/create-qr-code/?size=170x170&color=1e3a5f&data=${encodeURIComponent(targetUrl)}`;
+                img.alt = 'QR Code Halaman Awal Cat Diabetic Care';
+                img.className = 'w-[170px] h-[170px] object-contain';
+                qrContainer.appendChild(img);
+            }
+        }
+
+        function openQrModal(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            generateQrCode();
+            const modal = document.getElementById('modal-qr');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('is-open');
+                modal.style.display = 'flex';
+            }
+            refreshIconsSafe();
+        }
+
+        function downloadQrImage() {
+            const qrContainer = document.getElementById('qrcode-canvas');
+            if (!qrContainer) return;
+
+            const canvas = qrContainer.querySelector('canvas');
+            const img = qrContainer.querySelector('img');
+            let dataUrl = '';
+
+            if (canvas) {
+                dataUrl = canvas.toDataURL('image/png');
+            } else if (img && img.src) {
+                dataUrl = img.src;
+            }
+
+            if (!dataUrl) {
+                showToast('QR Code sedang dimuat, silakan coba lagi.');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = 'QR_Cat_Diabetic_Care.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Gambar QR Code berhasil disimpan!');
+        }
+
+        function copyPatientLink() {
+            const targetUrl = buildShareableUrl();
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(targetUrl).then(() => {
+                    showToast('Link halaman awal berhasil disalin!');
+                }).catch(() => fallbackCopyText(targetUrl));
+            } else {
+                fallbackCopyText(targetUrl);
+            }
+        }
+
+        function fallbackCopyText(text) {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast('Link halaman awal berhasil disalin!');
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT DIABETIC CARE - Pemantauan Terapi Diabetes Kucing</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- QRCode.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Firebase App & Realtime Database SDK (Compat v10) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        medNavy: '#1e3a5f',
+                        medBlueLight: '#eaf3fb',
+                        medHeaderGray: '#d9e3ee',
+                        dangerBg: '#fef2f2',
+                        dangerBorder: '#fca5a5',
+                        dangerText: '#b91c1c',
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body {
+            background-color: #f4f7fb;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        button, a, label[for], input, select, textarea {
+            touch-action: manipulation;
+        }
+        button svg, a svg, span svg {
+            pointer-events: none;
+        }
+        .underline-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #94a3b8;
+            padding: 2px 6px;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+        .underline-input:focus {
+            outline: none;
+            border-bottom-color: #1e3a5f;
+            background-color: rgba(234, 243, 251, 0.5);
+        }
+        .med-checkbox {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #1e3a5f;
+            border-radius: 5px;
+            display: inline-grid;
+            place-content: center;
+            cursor: pointer;
+            background: #ffffff;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .med-checkbox::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em #ffffff;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .med-checkbox:checked {
+            background-color: #1e3a5f;
+            border-color: #1e3a5f;
+        }
+        .med-checkbox:checked::before {
+            transform: scale(1);
+        }
+        .danger-checkbox {
+            border-color: #b91c1c;
+        }
+        .danger-checkbox:checked {
+            background-color: #b91c1c;
+            border-color: #b91c1c;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+        .app-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .app-modal-backdrop.is-open {
+            display: flex !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-blue-200">
+
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 1: LANDING / BERANDA                              -->
+        <!-- ========================================================= -->
+        <section id="view-landing" class="w-full max-w-md animate-fade-in my-auto relative z-10">
+            <div class="bg-white rounded-3xl shadow-xl border-2 border-medNavy p-6 sm:p-8 text-center relative overflow-hidden">
+                <div class="absolute -top-12 -right-12 w-36 h-36 bg-blue-100/60 rounded-full pointer-events-none"></div>
+                <div class="absolute -bottom-12 -left-12 w-36 h-36 bg-blue-50 rounded-full pointer-events-none"></div>
+
+                <!-- Baris Atas: Scan QR Code / Link Web Awal -->
+                <div class="relative z-20 flex justify-center mb-5">
+                    <button type="button" id="btn-open-qr-landing" data-action="open-qr" class="inline-flex items-center gap-2 text-xs font-bold text-medNavy bg-medBlueLight hover:bg-blue-100 border border-blue-200 px-4 py-2.5 rounded-full shadow-2xs transition active:scale-95 cursor-pointer">
+                        <i data-lucide="qr-code" class="w-4 h-4 text-blue-700"></i>
+                        <span>Scan QR Code / Link Web</span>
+                    </button>
+                </div>
+
+                <!-- Ikon Kucing Utama -->
+                <div class="relative z-10 mx-auto w-28 h-24 bg-medBlueLight border-2 border-medNavy rounded-3xl flex items-center justify-center shadow-sm mb-4">
+                    <svg viewBox="0 0 180 140" class="w-22 h-20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M44 54 L34 16 L68 38 C75 36 82 35 90 35 C98 35 105 36 112 38 L146 16 L136 54 C143 64 146 75 146 86 C146 114 121 130 90 130 C59 130 34 114 34 86 C34 75 37 64 44 54 Z" fill="#ffffff" stroke="#1e3a5f" stroke-width="5.5" stroke-linejoin="round"/>
+                        <path d="M48 49 L42 27 L62 40 Z" fill="#dbeafe"/>
+                        <path d="M132 49 L138 27 L118 40 Z" fill="#dbeafe"/>
+                        <path d="M60 73 Q68 63 76 73" stroke="#1e3a5f" stroke-width="4.5" stroke-linecap="round"/>
+                        <path d="M104 73 Q112 63 120 73" stroke="#1e3a5f" stroke-width="4.5" stroke-linecap="round"/>
+                        <path d="M84 85 L96 85 L90 92 Z" fill="#f43f5e"/>
+                        <path d="M77 95 Q83.5 103 90 94 Q96.5 103 103 95" stroke="#1e3a5f" stroke-width="4" stroke-linecap="round" fill="none"/>
+                        <line x1="20" y1="78" x2="46" y2="82" stroke="#1e3a5f" stroke-width="3.5" stroke-linecap="round"/>
+                        <line x1="18" y1="90" x2="45" y2="90" stroke="#1e3a5f" stroke-width="3.5" stroke-linecap="round"/>
+                        <line x1="160" y1="78" x2="134" y2="82" stroke="#1e3a5f" stroke-width="3.5" stroke-linecap="round"/>
+                        <line x1="162" y1="90" x2="135" y2="90" stroke="#1e3a5f" stroke-width="3.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+
+                <!-- Judul Utama -->
+                <div class="relative z-10 space-y-1.5 mb-7">
+                    <h1 class="font-display font-extrabold text-2xl sm:text-3xl text-medNavy tracking-tight uppercase">
+                        CAT DIABETIC CARE
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                        Sistem Pemantauan Harian Terapi Diabetes Kucing Berbasis 7 Hari & Evaluasi Dokter Hewan
+                    </p>
+                </div>
+
+                <!-- Pilihan Peran: Pasien vs Dokter -->
+                <div class="relative z-20 grid grid-cols-2 gap-3.5">
+                    <button type="button" id="btn-role-patient" onclick="goToLogin(event)" class="group bg-medNavy hover:bg-blue-900 text-white rounded-2xl p-4 shadow-md hover:shadow-lg transition flex flex-col items-center justify-center gap-2 active:scale-[0.98] cursor-pointer">
+                        <div class="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center group-hover:scale-105 transition">
+                            <i data-lucide="cat" class="w-6 h-6 text-blue-100"></i>
+                        </div>
+                        <span class="font-display font-extrabold text-sm sm:text-base tracking-wide">Pasien</span>
+                        <span class="text-[10px] text-blue-200 font-medium">Pemilik Kucing</span>
+                    </button>
+
+                    <button type="button" id="btn-role-vet" onclick="openVetPortal(event)" class="group bg-white hover:bg-medBlueLight text-medNavy border-2 border-medNavy rounded-2xl p-4 shadow-sm hover:shadow-md transition flex flex-col items-center justify-center gap-2 active:scale-[0.98] cursor-pointer">
+                        <div class="w-11 h-11 rounded-xl bg-medBlueLight group-hover:bg-white flex items-center justify-center transition">
+                            <i data-lucide="stethoscope" class="w-6 h-6 text-medNavy"></i>
+                        </div>
+                        <span class="font-display font-extrabold text-sm sm:text-base tracking-wide">Dokter</span>
+                        <span class="text-[10px] text-slate-500 font-medium">Portal Evaluasi</span>
+                    </button>
+                </div>
+
+                <!-- Badge Info Akses & Cloud Status -->
+                <div class="relative z-20 mt-6 pt-4 border-t border-slate-100 flex flex-col items-center gap-2 text-[11px] text-slate-500">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <i data-lucide="tag" class="w-3.5 h-3.5 text-blue-600"></i>
+                        <span>QR Code & Link Mengarah ke Halaman Awal Aplikasi</span>
+                    </div>
+                    <button type="button" onclick="openCloudConfigModal(event)" id="landing-cloud-badge" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition cursor-pointer">
+                        <span id="landing-cloud-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span id="landing-cloud-text">Mode Lokal • Klik Hubungkan Cloud</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 2: LOGIN & DAFTAR AKUN PASIEN                     -->
+        <!-- ========================================================= -->
+        <section id="view-login" class="hidden w-full max-w-md animate-fade-in my-auto relative z-10">
+            <div class="bg-white rounded-3xl shadow-xl border-2 border-medNavy overflow-hidden">
+                <div class="bg-medBlueLight border-b-2 border-medNavy px-5 py-3.5 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <svg viewBox="0 0 180 140" class="w-9 h-8 shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M44 54 L34 16 L68 38 C75 36 82 35 90 35 C98 35 105 36 112 38 L146 16 L136 54 C143 64 146 75 146 86 C146 114 121 130 90 130 C59 130 34 114 34 86 C34 75 37 64 44 54 Z" fill="#ffffff" stroke="#1e3a5f" stroke-width="6" stroke-linejoin="round"/>
+                            <path d="M60 73 Q68 63 76 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M104 73 Q112 63 120 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M77 95 Q83.5 103 90 94 Q96.5 103 103 95" stroke="#1e3a5f" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                        </svg>
+                        <span class="font-display font-extrabold text-medNavy text-sm sm:text-base tracking-wide uppercase">
+                            CAT DIABETIC CARE
+                        </span>
+                    </div>
+                    <button type="button" onclick="navigateTo('landing', event)" class="text-xs font-semibold text-slate-600 hover:text-medNavy flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-white/70 transition cursor-pointer">
+                        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                        <span>Kembali</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5">
+                    <button type="button" id="auth-tab-login" onclick="switchAuthTab('login')" class="py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition cursor-pointer">
+                        Masuk Akun
+                    </button>
+                    <button type="button" id="auth-tab-register" onclick="switchAuthTab('register')" class="py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition cursor-pointer">
+                        Daftar Pasien Baru
+                    </button>
+                </div>
+
+                <!-- FORM LOGIN PASIEN -->
+                <form id="form-auth-login" onsubmit="handleLogin(event)" class="p-6 sm:p-7 space-y-4">
+                    <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-3 text-[11px] text-medNavy flex items-start gap-2">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+                        <span>Masuk menggunakan akun kucing yang sudah terdaftar, atau pilih <strong>Daftar Pasien Baru</strong>.</span>
+                    </div>
+
+                    <div>
+                        <label for="login-username" class="block font-bold text-medNavy text-xs sm:text-sm mb-1">
+                            Nama Akun :
+                        </label>
+                        <input type="text" id="login-username" required placeholder="Masukkan nama akun (cth: cimit)" class="w-full rounded-xl border-2 border-slate-300 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-medNavy focus:bg-blue-50/30 transition">
+                    </div>
+
+                    <div>
+                        <label for="login-password" class="block font-bold text-medNavy text-xs sm:text-sm mb-1">
+                            Password :
+                        </label>
+                        <input type="password" id="login-password" required placeholder="Masukkan password..." class="w-full rounded-xl border-2 border-slate-300 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-medNavy focus:bg-blue-50/30 transition">
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-between gap-2">
+                        <button type="button" onclick="switchAuthTab('register')" class="text-xs font-semibold text-blue-600 hover:underline cursor-pointer">
+                            + Buat akun kucing baru
+                        </button>
+                        <button type="submit" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition active:scale-[0.98] cursor-pointer">
+                            <span>Next</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- FORM DAFTAR PASIEN BARU -->
+                <form id="form-auth-register" onsubmit="handleRegister(event)" class="hidden p-6 sm:p-7 space-y-3.5">
+                    <div class="bg-blue-50/80 border border-blue-200 rounded-xl p-2.5 text-[11px] text-medNavy flex items-start gap-2">
+                        <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5"></i>
+                        <span>Setelah akun dibuat, formulir harian masih terkunci sampai dokter mengaktifkan fitur <strong>Mulai Pantau</strong>.</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="reg-username" class="block font-bold text-medNavy text-xs mb-1">Nama Akun (Login) *</label>
+                            <input type="text" id="reg-username" required placeholder="cth: cimit" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                        </div>
+                        <div>
+                            <label for="reg-password" class="block font-bold text-medNavy text-xs mb-1">Password *</label>
+                            <input type="password" id="reg-password" required placeholder="Buat password" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="reg-nama-pasien" class="block font-bold text-medNavy text-xs mb-1">Nama Pasien (Kucing) *</label>
+                        <input type="text" id="reg-nama-pasien" required placeholder="cth: Cimit" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="reg-nama-owner" class="block font-bold text-medNavy text-xs mb-1">Nama Owner *</label>
+                            <input type="text" id="reg-nama-owner" required placeholder="cth: rahma" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                        </div>
+                        <div>
+                            <label for="reg-usia" class="block font-bold text-medNavy text-xs mb-1">Usia Kucing *</label>
+                            <input type="text" id="reg-usia" required placeholder="cth: 6 Tahun" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="reg-dokter" class="block font-bold text-medNavy text-xs mb-1">Dokter Penanggung Jawab *</label>
+                        <select id="reg-dokter" required class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy bg-white"></select>
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-between gap-2">
+                        <button type="button" onclick="switchAuthTab('login')" class="text-xs font-semibold text-slate-500 hover:text-medNavy cursor-pointer">
+                            Sudah punya akun?
+                        </button>
+                        <button type="submit" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-xl shadow-md hover:shadow-lg transition active:scale-[0.98] cursor-pointer">
+                            <span>Buat Akun & Masuk</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 2B: LOGIN & DAFTAR AKUN DOKTER HEWAN              -->
+        <!-- ========================================================= -->
+        <section id="view-vet-auth" class="hidden w-full max-w-md animate-fade-in my-auto relative z-10">
+            <div class="bg-white rounded-3xl shadow-xl border-2 border-medNavy overflow-hidden">
+                <div class="bg-medNavy text-white border-b-2 border-medNavy px-5 py-3.5 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+                            <i data-lucide="stethoscope" class="w-4 h-4 text-blue-200"></i>
+                        </div>
+                        <div>
+                            <span class="font-display font-extrabold text-sm sm:text-base tracking-wide uppercase block leading-tight">
+                                LOGIN DOKTER HEWAN
+                            </span>
+                            <span class="text-[10px] text-blue-200">Akses Khusus Pasien Masing-Masing Dokter</span>
+                        </div>
+                    </div>
+                    <button type="button" onclick="navigateTo('landing', event)" class="text-xs font-semibold text-blue-200 hover:text-white flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer">
+                        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                        <span>Kembali</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 border-b border-slate-200 bg-slate-50/80 p-1.5 gap-1.5">
+                    <button type="button" id="vet-auth-tab-login" onclick="switchVetAuthTab('login')" class="py-2 px-3 rounded-xl text-xs sm:text-sm font-bold bg-medNavy text-white shadow-xs transition cursor-pointer">
+                        Masuk Akun Dokter
+                    </button>
+                    <button type="button" id="vet-auth-tab-register" onclick="switchVetAuthTab('register')" class="py-2 px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-white transition cursor-pointer">
+                        Daftar Dokter Baru
+                    </button>
+                </div>
+
+                <!-- FORM LOGIN DOKTER -->
+                <form id="form-vet-login" onsubmit="handleVetLogin(event)" class="p-6 sm:p-7 space-y-4">
+                    <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-3 text-[11px] text-medNavy flex items-start gap-2">
+                        <i data-lucide="lock" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+                        <span>Masuk dengan akun dokter hewan klinik. Setiap dokter hanya dapat melihat, menyetujui, dan mengendalikan pasien kucing miliknya sendiri.</span>
+                    </div>
+
+                    <div>
+                        <label for="vet-login-username" class="block font-bold text-medNavy text-xs sm:text-sm mb-1">
+                            Username Dokter :
+                        </label>
+                        <input type="text" id="vet-login-username" required placeholder="Masukkan username dokter" class="w-full rounded-xl border-2 border-slate-300 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-medNavy focus:bg-blue-50/30 transition">
+                    </div>
+
+                    <div>
+                        <label for="vet-login-password" class="block font-bold text-medNavy text-xs sm:text-sm mb-1">
+                            Password :
+                        </label>
+                        <input type="password" id="vet-login-password" required placeholder="Masukkan password..." class="w-full rounded-xl border-2 border-slate-300 px-3.5 py-2.5 text-sm font-medium focus:outline-none focus:border-medNavy focus:bg-blue-50/30 transition">
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-between gap-2">
+                        <button type="button" onclick="switchVetAuthTab('register')" class="text-xs font-semibold text-blue-600 hover:underline cursor-pointer">
+                            + Registrasi dokter baru
+                        </button>
+                        <button type="submit" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition active:scale-[0.98] cursor-pointer">
+                            <span>Masuk Portal</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- FORM DAFTAR DOKTER BARU -->
+                <form id="form-vet-register" onsubmit="handleVetRegister(event)" class="hidden p-6 sm:p-7 space-y-3.5">
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[11px] text-emerald-900 flex items-start gap-2">
+                        <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5"></i>
+                        <span>Akun dokter baru akan otomatis muncul pada pilihan dokter saat pemilik kucing mendaftar. Dokter hanya bisa mengakses pasiennya sendiri.</span>
+                    </div>
+
+                    <div>
+                        <label for="vet-reg-fullname" class="block font-bold text-medNavy text-xs mb-1">Nama Lengkap & Gelar Dokter *</label>
+                        <input type="text" id="vet-reg-fullname" required placeholder="cth: drh. Nabila Putri" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="vet-reg-username" class="block font-bold text-medNavy text-xs mb-1">Username Login *</label>
+                            <input type="text" id="vet-reg-username" required placeholder="cth: nabila" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                        </div>
+                        <div>
+                            <label for="vet-reg-password" class="block font-bold text-medNavy text-xs mb-1">Password *</label>
+                            <input type="password" id="vet-reg-password" required placeholder="Buat password" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="vet-reg-sip" class="block font-bold text-medNavy text-xs mb-1">Nomor SIP / Klinik (Opsional)</label>
+                        <input type="text" id="vet-reg-sip" placeholder="cth: Klinik Hewan Sehat Bandung" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:border-medNavy">
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-between gap-2">
+                        <button type="button" onclick="switchVetAuthTab('login')" class="text-xs font-semibold text-slate-500 hover:text-medNavy cursor-pointer">
+                            Sudah punya akun?
+                        </button>
+                        <button type="submit" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-xl shadow-md hover:shadow-lg transition active:scale-[0.98] cursor-pointer">
+                            <span>Buat Akun Dokter</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 3: KARTU PEMANTAUAN HARIAN PASIEN                 -->
+        <!-- ========================================================= -->
+        <section id="view-patient" class="hidden w-full max-w-2xl animate-fade-in pb-10 relative z-10">
+
+            <!-- Status Sinkronisasi & QR Link -->
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
+                <button type="button" onclick="openCloudConfigModal(event)" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition cursor-pointer">
+                    <span id="patient-cloud-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="patient-sync-label">Tersimpan</span> • <strong id="active-account-badge">Pasien</strong>
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="openQrModal(event)" class="text-[11px] font-bold text-medNavy bg-white hover:bg-blue-50 border border-slate-300 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer">
+                        <i data-lucide="qr-code" class="w-3 h-3 text-blue-600"></i>
+                        <span>QR Code & Link</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KOTAK KOMENTAR / EVALUASI DARI DOKTER HEWAN -->
+            <div id="patient-vet-feedback-box" class="hidden mb-4 bg-white rounded-2xl border-2 border-blue-400 shadow-sm overflow-hidden animate-fade-in">
+                <div class="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 text-medNavy font-bold text-xs sm:text-sm">
+                        <i data-lucide="stethoscope" class="w-4 h-4 text-blue-600"></i>
+                        <span>Evaluasi & Catatan Dokter Hewan</span>
+                    </div>
+                    <span id="patient-vet-status-badge" class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        Lanjutkan Terapi
+                    </span>
+                </div>
+                <div class="p-4 text-xs sm:text-sm space-y-1.5">
+                    <p id="patient-vet-comment-text" class="text-slate-800 font-medium leading-relaxed"></p>
+                    <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                        <span id="patient-vet-author" class="font-semibold text-medNavy">Dokter Hewan</span>
+                        <span id="patient-vet-time">Baru saja</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bar Navigasi Siklus Hari 1 - 7 -->
+            <div id="patient-sim-bar" class="bg-white rounded-2xl p-3.5 mb-4 border border-slate-300 shadow-xs">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-100">
+                    <div class="flex items-center gap-2">
+                        <span class="bg-blue-50 text-medNavy border border-blue-200 text-[11px] font-bold px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                            <i data-lucide="calendar" class="w-3 h-3 text-blue-600"></i> Jadwal Otomatis 7 Hari
+                        </span>
+                    </div>
+                    <span class="text-[11px] text-slate-500 font-medium">Auto-submit & ganti form setiap 24 jam</span>
+                </div>
+
+                <div class="flex items-center justify-between gap-1.5">
+                    <span class="text-[11px] font-bold text-slate-500">Hari ke-:</span>
+                    <div id="day-pills" class="flex-grow grid grid-cols-7 gap-1"></div>
+                </div>
+            </div>
+
+            <!-- KARTU UTAMA HALAMAN 3 -->
+            <div class="bg-white rounded-2xl shadow-lg border-2 border-medNavy overflow-hidden">
+                <div class="bg-medBlueLight border-b-2 border-medNavy px-4 sm:px-6 py-3.5 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5">
+                        <svg viewBox="0 0 180 140" class="w-9 h-8 shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M44 54 L34 16 L68 38 C75 36 82 35 90 35 C98 35 105 36 112 38 L146 16 L136 54 C143 64 146 75 146 86 C146 114 121 130 90 130 C59 130 34 114 34 86 C34 75 37 64 44 54 Z" fill="#ffffff" stroke="#1e3a5f" stroke-width="6" stroke-linejoin="round"/>
+                            <path d="M60 73 Q68 63 76 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M104 73 Q112 63 120 73" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M77 95 Q83.5 103 90 94 Q96.5 103 103 95" stroke="#1e3a5f" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                        </svg>
+                        <div>
+                            <h1 class="font-display font-extrabold text-medNavy text-base sm:text-lg tracking-wide uppercase leading-tight">
+                                CAT DIABETIC CARE
+                            </h1>
+                            <p class="text-[11px] text-slate-600 font-medium">Kartu Kontrol Terapi Diabetes • <span id="header-doctor-name" class="font-bold text-medNavy">Dokter</span></p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" data-action="open-qr" title="QR Code & Link Web" class="p-2 rounded-lg bg-white border border-slate-300 text-medNavy hover:bg-blue-50 transition cursor-pointer">
+                            <i data-lucide="qr-code" class="w-4 h-4"></i>
+                        </button>
+                        <button type="button" onclick="logoutPatient(event)" class="text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 px-3 py-2 rounded-lg flex items-center gap-1.5 transition cursor-pointer">
+                            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                            <span>Keluar</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 sm:p-6 space-y-5">
+                    <!-- KOTAK INFORMASI IDENTITAS PASIEN -->
+                    <div class="border-2 border-slate-400 rounded-2xl p-3.5 sm:p-4 bg-white space-y-2.5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5 text-xs sm:text-sm">
+                            <div class="space-y-2.5">
+                                <div class="flex items-center gap-1.5">
+                                    <label for="id-nama-pasien" class="font-semibold text-slate-700 shrink-0">Nama pasien :</label>
+                                    <input type="text" id="id-nama-pasien" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <label for="id-nama-owner" class="font-semibold text-slate-700 shrink-0">Nama owner :</label>
+                                    <input type="text" id="id-nama-owner" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <label for="id-jenis-obat" class="font-semibold text-slate-700 shrink-0">Jenis & dosis obat / insulin :</label>
+                                    <input type="text" id="id-jenis-obat" oninput="savePatientTherapyFields()" class="underline-input w-full font-extrabold text-medNavy" placeholder="cth: Insulin Lantus 2 U">
+                                </div>
+                            </div>
+
+                            <div class="space-y-2.5">
+                                <div class="flex items-center gap-1.5">
+                                    <label for="id-minggu-ke" class="font-semibold text-slate-700 shrink-0">Minggu ke- :</label>
+                                    <input type="text" id="id-minggu-ke" oninput="savePatientTherapyFields()" class="underline-input w-full font-extrabold text-medNavy" placeholder="cth: 1">
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <label for="id-usia" class="font-semibold text-slate-700 shrink-0">Usia :</label>
+                                    <input type="text" id="id-usia" readonly disabled class="w-full bg-slate-200/80 border-b-2 border-slate-500 rounded-t px-2.5 py-0.5 font-extrabold text-medNavy cursor-not-allowed select-none">
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <label for="id-jadwal-kontrol" class="font-semibold text-slate-700 shrink-0">Jadwal kontrol :</label>
+                                    <input type="text" id="id-jadwal-kontrol" oninput="savePatientTherapyFields()" class="underline-input w-full font-extrabold text-medNavy" placeholder="cth: 01 Des 2026">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STATE MENUNGGU DOKTER MENGAKTIFKAN FITUR PANTAU -->
+                    <div id="state-waiting-vet-start" class="hidden border-2 border-blue-300 bg-blue-50/80 rounded-2xl p-6 text-center space-y-3 animate-fade-in">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-blue-300 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
+                            <i data-lucide="clock" class="w-7 h-7"></i>
+                        </div>
+                        <span class="inline-block text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-medNavy border border-blue-200 px-3 py-1 rounded-full">
+                            Fitur Pantau Belum Diaktifkan Dokter
+                        </span>
+                        <h2 class="font-display font-extrabold text-lg sm:text-xl text-medNavy">
+                            Menunggu Dokter Mengaktifkan Pemantauan
+                        </h2>
+                        <p id="waiting-vet-start-desc" class="text-xs sm:text-sm text-slate-700 max-w-md mx-auto leading-relaxed">
+                            Akun kucing Anda sudah terdaftar. Formulir pemantauan harian belum dapat diisi karena fitur <strong>Mulai Pantau</strong> belum diaktifkan oleh dokter penanggung jawab.
+                        </p>
+                    </div>
+
+                    <!-- STATE A: MENUNGGU KEESOKAN HARINYA -->
+                    <div id="state-waiting-tomorrow" class="hidden border-2 border-blue-300 bg-blue-50/70 rounded-2xl p-6 text-center space-y-3 animate-fade-in">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-blue-200 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
+                            <i data-lucide="calendar-clock" class="w-7 h-7"></i>
+                        </div>
+                        <span class="inline-block text-[11px] font-extrabold uppercase tracking-wider bg-blue-100 text-medNavy px-3 py-1 rounded-full">
+                            Pemantauan Dijadwalkan • Hari Diagnosa Awal
+                        </span>
+                        <h2 class="font-display font-extrabold text-lg sm:text-xl text-medNavy">
+                            Formulir Pemantauan Mulai Aktif Besok
+                        </h2>
+                        <p class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                            Sesuai alur terapi setelah diagnosa dan resep insulin dari dokter, formulir harian akan otomatis terbuka mulai keesokan harinya (<strong id="waiting-start-date">Besok</strong>).
+                        </p>
+                        <div class="pt-2">
+                            <button type="button" onclick="activateTodayForm()" class="inline-flex items-center gap-2 bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-xs transition cursor-pointer">
+                                <i data-lucide="play" class="w-4 h-4"></i>
+                                <span>Mulai Isi Formulir Hari Ini</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STATE B: KONTROL SEMINGGU SELESAI / DIHENTIKAN DOKTER -->
+                    <div id="state-paused-control" class="hidden border-2 border-emerald-400 bg-emerald-50/70 rounded-2xl p-7 text-center space-y-3.5 animate-fade-in">
+                        <div class="w-16 h-16 rounded-full bg-white border-2 border-emerald-400 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                            <i data-lucide="calendar-check-2" class="w-8 h-8"></i>
+                        </div>
+                        <span id="paused-badge-label" class="inline-block text-[11px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">
+                            Hari Kontrol Klinik • Sistem Berhenti Sementara
+                        </span>
+                        <h2 id="paused-main-title" class="font-display font-extrabold text-xl sm:text-2xl text-medNavy">
+                            Kontrol Seminggu Selesai
+                        </h2>
+                        <p id="paused-description" class="text-xs sm:text-sm text-slate-700 max-w-md mx-auto leading-relaxed">
+                            Pemantauan 7 hari telah selesai dan waktunya hari ini kontrol ke dokter hewan. Formulir harian otomatis berhenti sementara menunggu keputusan dokter setelah pemeriksaan.
+                        </p>
+                        <div class="pt-2 flex flex-wrap items-center justify-center gap-2.5">
+                            <button type="button" onclick="viewPastRecordsWhilePaused()" class="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-medNavy border border-slate-300 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition cursor-pointer">
+                                <i data-lucide="history" class="w-4 h-4"></i>
+                                <span>Lihat Riwayat Hari 1–7</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TABEL / FORMULIR HARIAN (HARI 1 S/D HARI 7) -->
+                    <form id="daily-form" onsubmit="saveCurrentDay(event)">
+                        <div class="border-2 border-medNavy rounded-xl overflow-hidden bg-white">
+                            <div class="bg-medHeaderGray/90 border-b-2 border-medNavy px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span id="display-day-label" class="font-display font-extrabold text-medNavy text-base sm:text-lg">
+                                        Hari 1 (dari 7)
+                                    </span>
+                                    <span id="status-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                        Form Kosong
+                                    </span>
+                                </div>
+                                <div class="text-right">
+                                    <span id="display-date" class="font-bold text-xs sm:text-sm text-slate-800 underline decoration-slate-500 underline-offset-4">
+                                        -
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="divide-y divide-slate-300 text-xs sm:text-sm">
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <span class="font-semibold text-slate-800 min-w-[150px]">Pagi : Makan</span>
+                                    <div class="flex flex-wrap items-center gap-4 sm:gap-6">
+                                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" id="pagi-habis" onchange="toggleMakanOption('pagi', 'habis')" class="med-checkbox">
+                                            <span class="font-medium">Habis</span>
+                                        </label>
+                                        <div class="inline-flex items-center gap-2">
+                                            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                                <input type="checkbox" id="pagi-sisa-check" onchange="toggleMakanOption('pagi', 'sisa')" class="med-checkbox">
+                                                <span class="font-medium">Sisa</span>
+                                            </label>
+                                            <input type="text" id="pagi-sisa-text" placeholder="ket. sisa" class="underline-input w-20 sm:w-24 text-xs">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <span class="font-semibold text-slate-800">Pagi : Jam & dosis obat / insulin</span>
+                                    <div class="flex flex-wrap items-center gap-4">
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <label for="pagi-jam" class="font-medium text-slate-700">Jam :</label>
+                                            <input type="time" id="pagi-jam" class="underline-input font-semibold text-medNavy">
+                                        </div>
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <label for="pagi-u" class="font-medium text-slate-700">U :</label>
+                                            <input type="text" id="pagi-u" placeholder="2" class="underline-input w-14 text-center font-semibold text-medNavy">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <span class="font-semibold text-slate-800 min-w-[150px]">Malam : Makan</span>
+                                    <div class="flex flex-wrap items-center gap-4 sm:gap-6">
+                                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                            <input type="checkbox" id="malam-habis" onchange="toggleMakanOption('malam', 'habis')" class="med-checkbox">
+                                            <span class="font-medium">Habis</span>
+                                        </label>
+                                        <div class="inline-flex items-center gap-2">
+                                            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                                <input type="checkbox" id="malam-sisa-check" onchange="toggleMakanOption('malam', 'sisa')" class="med-checkbox">
+                                                <span class="font-medium">Sisa</span>
+                                            </label>
+                                            <input type="text" id="malam-sisa-text" placeholder="ket. sisa" class="underline-input w-20 sm:w-24 text-xs">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <span class="font-semibold text-slate-800">Malam : Jam & dosis obat / insulin</span>
+                                    <div class="flex flex-wrap items-center gap-4">
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <label for="malam-jam" class="font-medium text-slate-700">Jam :</label>
+                                            <input type="time" id="malam-jam" class="underline-input font-semibold text-medNavy">
+                                        </div>
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <label for="malam-u" class="font-medium text-slate-700">U :</label>
+                                            <input type="text" id="malam-u" placeholder="2" class="underline-input w-14 text-center font-semibold text-medNavy">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <label for="pantauan-minum" class="font-semibold text-slate-800">Total air minum (24 jam)</label>
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <input type="number" id="pantauan-minum" placeholder="0" class="underline-input w-24 text-center font-semibold text-medNavy">
+                                        <span class="font-medium text-slate-700">ml</span>
+                                    </div>
+                                </div>
+
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <label for="pantauan-pipis" class="font-semibold text-slate-800">Frekuensi pipis</label>
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <input type="number" id="pantauan-pipis" placeholder="0" class="underline-input w-20 text-center font-semibold text-medNavy">
+                                        <span class="font-medium text-slate-700">x kali gumpalan</span>
+                                    </div>
+                                </div>
+
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <span class="font-semibold text-slate-800">Kondisi BAB</span>
+                                    <div class="flex flex-wrap items-center gap-4 sm:gap-5">
+                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="bab-normal" onchange="toggleGroup('bab', 'normal')" class="med-checkbox">
+                                            <span>Normal</span>
+                                        </label>
+                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="bab-lembek" onchange="toggleGroup('bab', 'lembek')" class="med-checkbox">
+                                            <span>Lembek</span>
+                                        </label>
+                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="bab-diare" onchange="toggleGroup('bab', 'diare')" class="med-checkbox">
+                                            <span>Diare</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-slate-50/60">
+                                    <span class="font-semibold text-slate-800">Tingkat aktivitas</span>
+                                    <div class="flex flex-wrap items-center gap-4 sm:gap-5">
+                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="aktivitas-aktif" onchange="toggleGroup('aktivitas', 'aktif')" class="med-checkbox">
+                                            <span>Aktif</span>
+                                        </label>
+                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="aktivitas-grooming" onchange="toggleGroup('aktivitas', 'grooming')" class="med-checkbox">
+                                            <span>Grooming</span>
+                                        </label>
+                                        <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="aktivitas-lesu" onchange="toggleGroup('aktivitas', 'lesu')" class="med-checkbox">
+                                            <span>Lesu</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TANDA BAHAYA & CATATAN + FOTO/VIDEO -->
+                        <div class="mt-4 space-y-3.5">
+                            <div class="bg-dangerBg border-2 border-dangerBorder rounded-xl p-3.5">
+                                <div class="flex items-center gap-1.5 text-dangerText font-extrabold text-xs sm:text-sm mb-2">
+                                    <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                                    <span>[!] TANDA BAHAYA (Centang jika muncul):</span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:text-sm font-medium text-red-950">
+                                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" id="bahaya-tolak" class="med-checkbox danger-checkbox">
+                                        <span>Tolak makan</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" id="bahaya-muntah" class="med-checkbox danger-checkbox">
+                                        <span>Muntah</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" id="bahaya-lemas" class="med-checkbox danger-checkbox">
+                                        <span>Lemas/Sempoyongan</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50/80 border border-slate-300 rounded-xl p-3.5 space-y-2.5">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <label for="catatan-harian" class="font-bold text-medNavy text-xs sm:text-sm">
+                                        Catatan :
+                                    </label>
+                                    <label for="catatan-media-input" class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold text-medNavy bg-white hover:bg-blue-50 border border-medNavy/30 px-3 py-1.5 rounded-lg shadow-2xs transition active:scale-95">
+                                        <i data-lucide="camera" class="w-3.5 h-3.5 text-blue-600"></i>
+                                        <span>+ Tambah Foto / Video</span>
+                                        <input type="file" id="catatan-media-input" accept="image/*,video/*" class="hidden" onchange="handleMediaUpload(event)">
+                                    </label>
+                                </div>
+
+                                <textarea id="catatan-harian" rows="2" placeholder="Tulis kondisi khusus (misal: muntah darah, luka/borok, atau reaksi setelah suntik)..." class="w-full rounded-xl border border-slate-300 p-2.5 text-xs sm:text-sm focus:outline-none focus:border-medNavy focus:ring-2 focus:ring-blue-100 transition bg-white"></textarea>
+
+                                <div id="media-preview-wrapper" class="hidden pt-1">
+                                    <div class="relative inline-block rounded-xl overflow-hidden border-2 border-slate-300 bg-white max-w-full">
+                                        <img id="media-preview-img" class="hidden max-h-48 w-auto object-contain" alt="Lampiran Kondisi Kucing">
+                                        <video id="media-preview-video" class="hidden max-h-48 w-auto" controls></video>
+                                        <div class="flex items-center justify-between gap-3 bg-slate-100 px-3 py-1.5 text-[11px] text-slate-600 border-t border-slate-200">
+                                            <span id="media-file-name" class="truncate max-w-[180px] font-medium">lampiran.jpg</span>
+                                            <button type="button" onclick="removeMediaAttachment()" class="text-red-600 font-bold hover:underline flex items-center gap-1 cursor-pointer">
+                                                <i data-lucide="trash-2" class="w-3 h-3"></i> Hapus
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-1">
+                                <button type="submit" class="w-full bg-medNavy hover:bg-blue-900 text-white font-bold py-3.5 px-5 rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 active:scale-[0.99] cursor-pointer">
+                                    <i data-lucide="save" class="w-5 h-5"></i>
+                                    <span id="btn-save-text">Simpan Laporan Hari Ini</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================================= -->
+        <!-- HALAMAN 4: PORTAL DOKTER HEWAN (TERISOLASI PER DOKTER)    -->
+        <!-- ========================================================= -->
+        <section id="view-vet" class="hidden w-full max-w-4xl animate-fade-in pb-12 relative z-10">
+
+            <div class="bg-medNavy text-white rounded-2xl p-4 mb-5 shadow-md flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                        <i data-lucide="stethoscope" class="w-5 h-5 text-blue-200"></i>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h1 class="font-display font-extrabold text-base sm:text-lg tracking-wide uppercase">
+                                PORTAL DOKTER HEWAN
+                            </h1>
+                            <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <i data-lucide="lock" class="w-2.5 h-2.5"></i> PRIVASI PASIEN TERISOLASI
+                            </span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 mt-1 text-xs">
+                            <span class="text-blue-200">Dokter Login:</span>
+                            <strong id="logged-vet-display-name" class="text-white bg-white/15 px-2.5 py-0.5 rounded-md">Dokter</strong>
+                            <span id="logged-vet-clinic-info" class="text-blue-200 text-[11px]"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="openCloudConfigModal(event)" id="vet-cloud-btn" class="text-xs font-bold bg-blue-500/20 text-blue-100 hover:bg-blue-500/30 border border-blue-300/30 px-3 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer">
+                        <i data-lucide="cloud" class="w-3.5 h-3.5"></i>
+                        <span id="vet-cloud-label">Cloud</span>
+                    </button>
+                    <button type="button" onclick="logoutVet(event)" class="text-xs font-bold bg-white text-medNavy hover:bg-red-50 hover:text-red-700 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        <span>Keluar Dokter</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SUB-VIEW A: DAFTAR PASIEN KUCING -->
+            <div id="vet-list-panel" class="space-y-4">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-xs">
+                        <div class="text-[11px] font-semibold text-slate-500">Pasien Saya</div>
+                        <div id="vet-stat-total" class="font-display font-extrabold text-xl sm:text-2xl text-medNavy mt-0.5">0</div>
+                    </div>
+                    <div class="bg-blue-50/80 rounded-2xl p-3.5 border border-blue-200 shadow-xs">
+                        <div class="text-[11px] font-semibold text-blue-800">Belum Mulai Pantau</div>
+                        <div id="vet-stat-not-started" class="font-display font-extrabold text-xl sm:text-2xl text-blue-700 mt-0.5">0</div>
+                    </div>
+                    <div class="bg-red-50/70 rounded-2xl p-3.5 border border-red-200 shadow-xs">
+                        <div class="text-[11px] font-semibold text-red-700">Perlu Perhatian</div>
+                        <div id="vet-stat-danger" class="font-display font-extrabold text-xl sm:text-2xl text-red-600 mt-0.5">0</div>
+                    </div>
+                    <div class="bg-emerald-50/70 rounded-2xl p-3.5 border border-emerald-200 shadow-xs">
+                        <div class="text-[11px] font-semibold text-emerald-700">Waktunya Kontrol / Stop</div>
+                        <div id="vet-stat-completed" class="font-display font-extrabold text-xl sm:text-2xl text-emerald-600 mt-0.5">0</div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3">
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <input type="text" id="vet-search-input" oninput="renderVetPatientList()" placeholder="Cari cepat pasien Anda berdasarkan Nama Kucing atau Nama Owner..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-medNavy focus:ring-2 focus:ring-blue-100">
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="button" onclick="setVetFilter('all')" id="filter-btn-all" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-medNavy text-white transition cursor-pointer">
+                            Semua Pasien
+                        </button>
+                        <button type="button" onclick="setVetFilter('not_started')" id="filter-btn-not_started" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer">
+                            🕒 Belum Mulai Pantau
+                        </button>
+                        <button type="button" onclick="setVetFilter('danger')" id="filter-btn-danger" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700 transition cursor-pointer">
+                            ⚠️ Ada Tanda Bahaya
+                        </button>
+                        <button type="button" onclick="setVetFilter('completed')" id="filter-btn-completed" class="vet-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer">
+                            ⏸️ Hari Kontrol / Stop Pantau
+                        </button>
+                    </div>
+                </div>
+
+                <div id="vet-patient-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <!-- SUB-VIEW B: DETAIL PROGRES, KENDALI MULAI/STOP & KOMENTAR DOKTER -->
+            <div id="vet-detail-panel" class="hidden space-y-5 animate-fade-in">
+                <div class="flex items-center justify-between">
+                    <button type="button" onclick="closeVetDetail()" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-medNavy bg-white hover:bg-blue-50 border border-slate-300 px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        <span>Kembali ke Daftar Pasien</span>
+                    </button>
+                    <span id="detail-monitoring-pill" class="text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        ● Pemantauan Aktif
+                    </span>
+                </div>
+
+                <div class="bg-white rounded-2xl border-2 border-medNavy p-4 sm:p-5 shadow-sm space-y-4">
+                    <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-200">
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h2 id="detail-patient-name" class="font-display font-extrabold text-xl text-medNavy">-</h2>
+                                <span id="detail-danger-pill" class="hidden text-[11px] font-extrabold bg-red-100 text-red-700 border border-red-300 px-2.5 py-0.5 rounded-full">
+                                    ⚠️ Ada Tanda Bahaya
+                                </span>
+                            </div>
+                            <p id="detail-owner-info" class="text-xs sm:text-sm text-slate-600 mt-0.5">-</p>
+                            <p id="detail-doctor-assigned" class="text-xs font-bold text-blue-700 mt-1">-</p>
+                        </div>
+                        <div class="bg-medBlueLight border border-blue-200 rounded-xl px-3.5 py-2 text-right">
+                            <div class="text-[10px] font-bold uppercase text-slate-500">Regimen Terapi</div>
+                            <div id="detail-med-info" class="font-bold text-xs sm:text-sm text-medNavy">-</div>
+                            <div id="detail-control-info" class="text-[11px] text-slate-600">-</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+                        <div class="space-y-0.5">
+                            <div class="text-xs font-extrabold text-medNavy uppercase tracking-wide flex items-center gap-1.5">
+                                <i data-lucide="sliders" class="w-3.5 h-3.5 text-blue-600"></i>
+                                <span>Kendali Sistem Pemantauan (Otoritas Dokter)</span>
+                            </div>
+                            <p id="detail-control-desc" class="text-[11px] text-slate-600">
+                                Tekan <strong>Mulai Pantau</strong> untuk mengaktifkan formulir harian 7 hari pasien, atau <strong>Stop Pantau</strong> untuk menghentikan sementara.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" onclick="doctorStartMonitoring()" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
+                                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                                <span>Mulai Pantau</span>
+                            </button>
+                            <button type="button" onclick="doctorStopMonitoring()" class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
+                                <i data-lucide="square" class="w-3.5 h-3.5"></i>
+                                <span>Stop Pantau</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-medNavy flex items-center gap-1.5">
+                                    <i data-lucide="droplets" class="w-3.5 h-3.5 text-blue-500"></i>
+                                    Tren Air Minum (ml / 24 jam)
+                                </span>
+                                <span class="text-[10px] text-slate-400">H1 – H7</span>
+                            </div>
+                            <div id="chart-minum" class="h-28 flex items-end justify-between gap-1.5 pt-4 px-1"></div>
+                        </div>
+
+                        <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-medNavy flex items-center gap-1.5">
+                                    <i data-lucide="activity" class="w-3.5 h-3.5 text-teal-600"></i>
+                                    Tren Frekuensi Pipis (x / hari)
+                                </span>
+                                <span class="text-[10px] text-slate-400">H1 – H7</span>
+                            </div>
+                            <div id="chart-pipis" class="h-28 flex items-end justify-between gap-1.5 pt-4 px-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL EVALUASI & KOMENTAR DOKTER -->
+                <div class="bg-white rounded-2xl border-2 border-blue-500 p-4 sm:p-5 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-display font-extrabold text-base text-medNavy flex items-center gap-2">
+                            <i data-lucide="message-square-plus" class="w-5 h-5 text-blue-600"></i>
+                            <span>Evaluasi & Komentar Dokter Hewan</span>
+                        </h3>
+                        <span class="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                            Langsung tampil di HP Pemilik
+                        </span>
+                    </div>
+
+                    <form onsubmit="submitVetEvaluation(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Pilih Status Arahan Medis :</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="vet-status" value="Lanjutkan Terapi" checked class="peer sr-only">
+                                    <div class="p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 text-xs font-bold text-slate-700 peer-checked:text-emerald-800 text-center transition">
+                                        ✅ Lanjutkan Terapi
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="vet-status" value="Sesuaikan Dosis" class="peer sr-only">
+                                    <div class="p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 text-xs font-bold text-slate-700 peer-checked:text-amber-800 text-center transition">
+                                        ⚖️ Sesuaikan Dosis
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="vet-status" value="Segera Bawa ke Klinik" class="peer sr-only">
+                                    <div class="p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-red-500 peer-checked:bg-red-50 text-xs font-bold text-slate-700 peer-checked:text-red-800 text-center transition">
+                                        🚨 Segera Bawa ke Klinik
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="vet-comment-input" class="block text-xs font-bold text-slate-700 mb-1">
+                                Catatan / Instruksi untuk Pemilik Kucing :
+                            </label>
+                            <textarea id="vet-comment-input" rows="3" required placeholder="Contoh: Nafsu makan dan volume minum membaik. Pertahankan dosis insulin 2 U pagi & malam, tetap pantau muntah/lemas." class="w-full rounded-xl border-2 border-slate-300 p-3 text-xs sm:text-sm focus:outline-none focus:border-medNavy transition"></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full sm:w-auto bg-medNavy hover:bg-blue-900 text-white font-bold text-xs sm:text-sm py-3 px-6 rounded-xl shadow-sm transition flex items-center justify-center gap-2 cursor-pointer">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            <span>Kirim Evaluasi sebagai <span id="btn-vet-sender-name">Dokter</span></span>
+                        </button>
+                    </form>
+
+                    <div class="pt-3 border-t border-slate-200">
+                        <div class="text-xs font-bold text-slate-500 mb-2">Riwayat Komentar Evaluasi:</div>
+                        <div id="vet-comment-history" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- REKAP LENGKAP HARIAN -->
+                <div class="bg-white rounded-2xl border border-slate-300 p-4 sm:p-5 shadow-xs space-y-3">
+                    <h3 class="font-display font-extrabold text-base text-medNavy flex items-center gap-2">
+                        <i data-lucide="clipboard-list" class="w-5 h-5 text-medNavy"></i>
+                        <span>Rekap Laporan Harian Pemilik & Lampiran Media (Hari 1 – Hari 7)</span>
+                    </h3>
+                    <div id="vet-daily-recap-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 1: QR CODE & LINK HALAMAN AWAL APLIKASI              -->
+    <!-- ========================================================= -->
+    <div id="modal-qr" class="app-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-center space-y-4 relative z-10">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-bold uppercase tracking-wider text-medNavy bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+                    <i data-lucide="qr-code" class="w-3.5 h-3.5 text-blue-600"></i> QR Code & Link Web
+                </span>
+                <button type="button" id="btn-close-qr" data-close-modal="modal-qr" aria-label="Tutup modal QR" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div>
+                <h3 id="modal-qr-title" class="font-display font-extrabold text-lg text-medNavy">Akses Halaman Awal Aplikasi</h3>
+                <p id="qr-tag-caption" class="text-xs text-slate-500 mt-1">
+                    Scan QR Code atau buka link ini untuk langsung membuka halaman pertama aplikasi Cat Diabetic Care di HP mana saja.
+                </p>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2">
+                <div id="qrcode-canvas" class="bg-white p-2 rounded-xl shadow-xs min-h-[186px] min-w-[186px] flex items-center justify-center"></div>
+                <span id="qr-patient-label" class="text-[11px] font-extrabold text-medNavy uppercase tracking-wide">
+                    HALAMAN AWAL • CAT DIABETIC CARE
+                </span>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button type="button" id="btn-download-qr" onclick="downloadQrImage()" class="w-full bg-medNavy hover:bg-blue-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Simpan Gambar QR Code</span>
+                </button>
+                <button type="button" id="btn-copy-qr-link" onclick="copyPatientLink()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    <span>Salin Link Halaman Awal</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 2: KONEKSI CLOUD REAL-TIME (FIREBASE)               -->
+    <!-- ========================================================= -->
+    <div id="modal-cloud" class="app-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-cloud-title">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-medNavy animate-fade-in text-left space-y-4 relative z-10">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+                    <i data-lucide="cloud" class="w-3.5 h-3.5"></i> Sinkronisasi Lintas Perangkat
+                </span>
+                <button type="button" id="btn-close-cloud" data-close-modal="modal-cloud" aria-label="Tutup modal Cloud" class="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div>
+                <h3 id="modal-cloud-title" class="font-display font-extrabold text-lg text-medNavy">Hubungkan Database Cloud (Firebase)</h3>
+                <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                    Agar akun dokter, akun pasien, dan laporan harian bisa dibuka di HP maupun laptop lain secara <strong>real-time</strong>, tempelkan URL <strong>Firebase Realtime Database</strong> Anda di bawah ini:
+                </p>
+            </div>
+
+            <form onsubmit="saveCloudConfig(event)" class="space-y-3">
+                <div>
+                    <label for="firebase-db-url" class="block text-xs font-bold text-medNavy mb-1">
+                        Firebase Realtime Database URL :
+                    </label>
+                    <input type="url" id="firebase-db-url" required placeholder="https://cat-diabetic-care-default-rtdb.asia-southeast1.firebasedatabase.app" class="w-full rounded-xl border-2 border-slate-300 px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-medNavy">
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">
+                    <div class="font-bold text-medNavy">Cara Mendapatkan URL Gratis (2 Menit):</div>
+                    <ol class="list-decimal list-inside space-y-0.5">
+                        <li>Buka <strong>console.firebase.google.com</strong> &rarr; Buat Proyek Baru.</li>
+                        <li>Pilih menu <strong>Build &rarr; Realtime Database &rarr; Create Database</strong>.</li>
+                        <li>Pilih <strong>Start in test mode</strong> &rarr; salin tautan <code>https://...firebasedatabase.app</code>.</li>
+                    </ol>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <button type="button" onclick="disconnectCloud()" class="text-xs font-semibold text-red-600 hover:underline cursor-pointer">
+                        Putuskan Cloud
+                    </button>
+                    <button type="submit" class="bg-medNavy hover:bg-blue-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Simpan & Sinkronkan</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- TOAST NOTIFICATION                                        -->
+    <!-- ========================================================= -->
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center gap-2.5 max-w-[92vw]">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+        <span id="toast-message">Data tersimpan!</span>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- JAVASCRIPT APPLICATION LOGIC                              -->
+    <!-- ========================================================= -->
+    <script>
+        const HARI_INDO = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const BULAN_INDO = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const STORAGE_KEY = 'cat_diabetic_care_prod_v1';
+        const CLOUD_URL_KEY = 'cat_diabetic_care_firebase_url';
+        const LOGGED_OUT_KEY = 'cat_diabetic_care_logged_out_v1';
+        const ACTIVE_SESSION_KEY = 'cat_diabetic_care_active_session_v1';
+        const DEFAULT_FIREBASE_DB_URL = 'https://cat-diabetic-care-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+        let firebaseDb = null;
+        let isCloudConnected = false;
+        let currentUploadedMedia = null;
+        let isUserEditingForm = false;
+        let isSessionAuthenticated = false;
+        let patientLiveSyncTimer = null;
+
+        let appState = {
+            currentUsername: null,
+            currentDoctorUsername: null,
+            selectedVetUsername: null,
+            vetFilter: 'all',
+            doctors: {},
+            accounts: {}
+        };
+
+        // ==========================================
+        // HELPER TANGGAL & TEKS
+        // ==========================================
+        function getTodayIso() {
+            const d = new Date();
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function addDaysIso(isoStr, daysToAdd) {
+            const parts = isoStr.split('-').map(Number);
+            const date = new Date(parts[0], parts[1] - 1, parts[2]);
+            date.setDate(date.getDate() + daysToAdd);
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function diffDaysIso(startIso, endIso) {
+            const p1 = startIso.split('-').map(Number);
+            const p2 = endIso.split('-').map(Number);
+            const d1 = new Date(p1[0], p1[1] - 1, p1[2]);
+            const d2 = new Date(p2[0], p2[1] - 1, p2[2]);
+            return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+        }
+
+        function formatIndoDateFromIso(isoStr) {
+            if (!isoStr) return '-';
+            const parts = isoStr.split('-').map(Number);
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            return `${HARI_INDO[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')} ${BULAN_INDO[d.getMonth()]} ${d.getFullYear()}`;
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function normalizeRecordsMap(rawRecords) {
+            const map = {};
+            if (!rawRecords) return map;
+            if (Array.isArray(rawRecords)) {
+                rawRecords.forEach((item, idx) => {
+                    if (item && typeof item === 'object') {
+                        const dayNum = Number(item.day || idx);
+                        if (dayNum >= 1 && dayNum <= 7) map[dayNum] = item;
+                    }
+                });
+                return map;
+            }
+            if (typeof rawRecords === 'object') {
+                Object.entries(rawRecords).forEach(([key, item]) => {
+                    if (item && typeof item === 'object') {
+                        const dayNum = Number(item.day || key);
+                        if (dayNum >= 1 && dayNum <= 7) map[dayNum] = item;
+                    }
+                });
+            }
+            return map;
+        }
+
+        function normalizeEvaluationsList(rawEvals) {
+            if (!rawEvals) return [];
+            const list = Array.isArray(rawEvals) ? rawEvals.filter(Boolean) : Object.values(rawEvals).filter(Boolean);
+            return list.slice();
+        }
+
+        function isMonitoringNotStarted(acc) {
+            if (!acc) return true;
+            if (acc.monitoringStatus === 'not_started') return true;
+            if (!acc.monitoringStatus) {
+                const hasExistingData = Object.keys(normalizeRecordsMap(acc.records)).length > 0 ||
+                    (Array.isArray(acc.vetEvaluations) && acc.vetEvaluations.length > 0);
+                return !hasExistingData;
+            }
+            return false;
+        }
+
+        function setExplicitLogoutFlag(val) {
+            try {
+                if (val) {
+                    sessionStorage.setItem(LOGGED_OUT_KEY, '1');
+                    localStorage.removeItem(ACTIVE_SESSION_KEY);
+                    sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+                } else {
+                    sessionStorage.removeItem(LOGGED_OUT_KEY);
+                }
+            } catch (e) {}
+        }
+
+        function persistActiveSession() {
+            try {
+                if (isSessionAuthenticated && (appState.currentUsername || appState.currentDoctorUsername)) {
+                    const sessionPayload = JSON.stringify({
+                        role: appState.currentDoctorUsername ? 'doctor' : 'patient',
+                        username: appState.currentDoctorUsername || appState.currentUsername
+                    });
+                    localStorage.setItem(ACTIVE_SESSION_KEY, sessionPayload);
+                    sessionStorage.setItem(ACTIVE_SESSION_KEY, sessionPayload);
+                } else {
+                    localStorage.removeItem(ACTIVE_SESSION_KEY);
+                    sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+                }
+            } catch (e) {}
+        }
+
+        function restoreActiveSession() {
+            try {
+                if (sessionStorage.getItem(LOGGED_OUT_KEY) === '1') return false;
+                const raw = sessionStorage.getItem(ACTIVE_SESSION_KEY) || localStorage.getItem(ACTIVE_SESSION_KEY);
+                if (!raw) return false;
+                const sess = JSON.parse(raw);
+                if (!sess || !sess.username) return false;
+                if (sess.role === 'doctor' && appState.doctors[sess.username]) {
+                    isSessionAuthenticated = true;
+                    appState.currentDoctorUsername = sess.username;
+                    appState.currentUsername = null;
+                    return true;
+                }
+                if (sess.role === 'patient' && appState.accounts[sess.username]) {
+                    isSessionAuthenticated = true;
+                    appState.currentUsername = sess.username;
+                    appState.currentDoctorUsername = null;
+                    return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+
+        function loadStateFromStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                    appState.doctors = parsed.doctors && typeof parsed.doctors === 'object' ? parsed.doctors : {};
+                    appState.accounts = parsed.accounts && typeof parsed.accounts === 'object' ? parsed.accounts : {};
+                    Object.values(appState.accounts).forEach(acc => {
+                        if (acc) {
+                            acc.records = normalizeRecordsMap(acc.records);
+                            acc.vetEvaluations = Array.isArray(acc.vetEvaluations) ? acc.vetEvaluations.filter(Boolean) : [];
+                            if (!acc.monitoringStatus) {
+                                acc.monitoringStatus = isMonitoringNotStarted(acc) ? 'not_started' : 'active';
+                            }
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('Error loading state:', e);
+            }
+        }
+
+        function saveStateToStorage(syncCloud = true) {
+            try {
+                const payloadToSave = {
+                    ...appState,
+                    currentUsername: null,
+                    currentDoctorUsername: null,
+                    selectedVetUsername: null
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadToSave));
+                if (syncCloud) {
+                    pushDataToCloud();
+                }
+            } catch (e) {
+                console.warn('Storage quota warning:', e);
+                showToast('Catatan tersimpan (ukuran lampiran terlalu besar untuk memori lokal).');
+            }
+        }
+
+        function getActiveCloudUrl() {
+            return (localStorage.getItem(CLOUD_URL_KEY) || DEFAULT_FIREBASE_DB_URL || '').trim().replace(/\/+$/, '');
+        }
+
+        function updateCloudStatusUI() {
+            const url = getActiveCloudUrl();
+            const connected = isCloudConnected && !!url;
+
+            const landingDot = document.getElementById('landing-cloud-dot');
+            const landingText = document.getElementById('landing-cloud-text');
+            const landingBadge = document.getElementById('landing-cloud-badge');
+            const patientSyncLabel = document.getElementById('patient-sync-label');
+            const vetCloudLabel = document.getElementById('vet-cloud-label');
+
+            if (connected) {
+                if (landingDot) landingDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                if (landingText) landingText.textContent = 'Cloud Aktif • Sinkron Perangkat';
+                if (landingBadge) landingBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer';
+                if (patientSyncLabel) patientSyncLabel.textContent = 'Cloud Aktif';
+                if (vetCloudLabel) vetCloudLabel.textContent = 'Cloud Aktif';
+            } else {
+                if (landingDot) landingDot.className = 'w-2 h-2 rounded-full bg-amber-500';
+                if (landingText) landingText.textContent = 'Mode Lokal • Klik Hubungkan Cloud';
+                if (landingBadge) landingBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition cursor-pointer';
+                if (patientSyncLabel) patientSyncLabel.textContent = 'Tersimpan';
+                if (vetCloudLabel) vetCloudLabel.textContent = 'Hubungkan Cloud';
+            }
+        }
+
+        function applyRemoteSnapshot(cloudData) {
+            if (!cloudData || typeof cloudData !== 'object') return;
+
+            const mergedDoctors = { ...(cloudData.doctors || {}) };
+            Object.entries(appState.doctors || {}).forEach(([k, localDoc]) => {
+                if (localDoc && typeof localDoc === 'object') {
+                    mergedDoctors[k] = { ...(mergedDoctors[k] || {}), ...localDoc };
+                }
+            });
+
+            const mergedAccounts = { ...(cloudData.accounts || {}) };
+            Object.entries(appState.accounts || {}).forEach(([k, localAcc]) => {
+                if (!localAcc || typeof localAcc !== 'object') return;
+                const remoteAcc = mergedAccounts[k] || {};
+                const remoteRecs = normalizeRecordsMap(remoteAcc.records);
+                const localRecs = normalizeRecordsMap(localAcc.records);
+                const combinedRecs = { ...remoteRecs, ...localRecs };
+
+                const remoteEvals = Array.isArray(remoteAcc.vetEvaluations)
+                    ? remoteAcc.vetEvaluations.filter(Boolean)
+                    : (remoteAcc.vetEvaluations ? Object.values(remoteAcc.vetEvaluations).filter(Boolean) : []);
+                const localEvals = Array.isArray(localAcc.vetEvaluations) ? localAcc.vetEvaluations.filter(Boolean) : [];
+                const combinedEvals = remoteEvals.length >= localEvals.length ? remoteEvals : localEvals;
+
                 const resolvedMonitoringStatus = remoteAcc.monitoringStatus || localAcc.monitoringStatus || 'not_started';
 
                 mergedAccounts[k] = {

@@ -157,7 +157,6 @@
           </div>
         </div>
 
-        <!-- Tab Switcher (Hanya satu set bersih) -->
         <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl mb-6">
           <button type="button" id="tab-patient-login" onclick="switchAuthTab('login')" class="py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-teal-700 shadow-sm transition">
             Masuk Akun
@@ -255,9 +254,8 @@
     <!-- VIEW 3: DASHBOARD KARTU PASIEN (7 HARI)                   -->
     <!-- ========================================================= -->
     <section id="view-patient" class="hidden animate-fade-in space-y-5">
-      <!-- Kartu Kontrol Terapi Diabetes (Header + Tabel Identitas Terapi) -->
+      <!-- Kartu Kontrol Terapi Diabetes -->
       <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
-        <!-- Header Biru Lembut -->
         <div class="bg-sky-50/90 px-5 sm:px-6 py-4 border-b border-slate-200/80 flex items-center justify-between gap-3">
           <div class="flex items-center gap-3">
             <div class="w-11 h-11 rounded-2xl bg-white border border-sky-200 text-slate-800 flex items-center justify-center shrink-0 shadow-xs">
@@ -290,7 +288,6 @@
         <!-- Tabel Grid Identitas Pasien & Terapi -->
         <div class="p-4 sm:p-6">
           <div class="rounded-2xl border border-slate-300/90 bg-white px-4 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs sm:text-sm">
-            <!-- Baris 1 -->
             <div class="flex items-baseline gap-2">
               <span class="font-semibold text-slate-600 shrink-0">Nama pasien :</span>
               <span id="pt-card-cat-name" class="flex-1 font-extrabold text-slate-900 border-b border-slate-400 pb-0.5 px-1.5 bg-slate-50/70 rounded-t">-</span>
@@ -300,7 +297,6 @@
               <span id="pt-card-week" class="flex-1 font-extrabold text-slate-900 border-b border-slate-400 pb-0.5 px-1.5">1</span>
             </div>
 
-            <!-- Baris 2 -->
             <div class="flex items-baseline gap-2">
               <span class="font-semibold text-slate-600 shrink-0">Nama owner :</span>
               <span id="pt-card-owner-name" class="flex-1 font-extrabold text-slate-900 border-b border-slate-400 pb-0.5 px-1.5">-</span>
@@ -310,7 +306,6 @@
               <span id="pt-card-age" class="flex-1 font-extrabold text-slate-900 border-b border-slate-400 pb-0.5 px-1.5">-</span>
             </div>
 
-            <!-- Baris 3 -->
             <div class="flex items-baseline gap-2">
               <span class="font-semibold text-slate-600 shrink-0">Jenis &amp; dosis obat / insulin :</span>
               <span id="pt-card-insulin" class="flex-1 font-extrabold text-slate-900 border-b border-slate-400 pb-0.5 px-1.5 truncate" title="">-</span>
@@ -320,7 +315,6 @@
               <span id="pt-card-next-control" class="flex-1 font-extrabold text-slate-900 border-b border-slate-400 pb-0.5 px-1.5">-</span>
             </div>
 
-            <!-- Baris 4: Nomor WhatsApp -->
             <div class="flex items-baseline gap-2 md:col-span-2">
               <span class="font-semibold text-slate-600 shrink-0">No. WhatsApp owner :</span>
               <span id="pt-card-phone" class="flex-1 font-extrabold text-slate-900 border-b border-slate-400 pb-0.5 px-1.5">-</span>
@@ -663,7 +657,7 @@
             </div>
 
             <div class="p-4 sm:p-6 space-y-4">
-              <!-- Tabel Grid Identitas Pasien & Terapi (Sama dengan Kartu Pasien) -->
+              <!-- Tabel Grid Identitas Pasien & Terapi -->
               <div class="rounded-2xl border border-slate-300/90 bg-white px-4 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs sm:text-sm">
                 <div class="flex items-baseline gap-2">
                   <span class="font-semibold text-slate-600 shrink-0">Nama pasien :</span>
@@ -938,55 +932,97 @@
       return clean;
     }
 
-    function mergeRemoteData(remoteData) {
-      if (!remoteData || typeof remoteData !== 'object') return;
+    function mergeRemoteData(remoteData, isAuthoritativeCloud = false) {
+      if (!remoteData || typeof remoteData !== 'object') {
+        if (isAuthoritativeCloud) {
+          appState.doctors = {};
+          appState.accounts = {};
+          saveLocalState();
+          populateDoctorSelectOptions();
+          if (currentPatientUsername || currentVetUsername) {
+            currentPatientUsername = null;
+            currentVetUsername = null;
+            clearActiveSession();
+            navigateToLanding();
+          }
+        }
+        return;
+      }
 
-      if (remoteData.doctors && typeof remoteData.doctors === 'object') {
-        Object.keys(remoteData.doctors).forEach((k) => {
-          if (remoteData.doctors[k]) {
-            appState.doctors[k] = { ...(appState.doctors[k] || {}), ...remoteData.doctors[k] };
+      const remoteDoctors = (remoteData.doctors && typeof remoteData.doctors === 'object') ? remoteData.doctors : {};
+      const remoteAccounts = (remoteData.accounts && typeof remoteData.accounts === 'object') ? remoteData.accounts : {};
+
+      if (isAuthoritativeCloud) {
+        Object.keys(appState.doctors).forEach((k) => {
+          if (!remoteDoctors[k]) {
+            delete appState.doctors[k];
+          }
+        });
+        Object.keys(appState.accounts).forEach((k) => {
+          if (!remoteAccounts[k]) {
+            delete appState.accounts[k];
           }
         });
       }
 
-      if (remoteData.accounts && typeof remoteData.accounts === 'object') {
-        Object.keys(remoteData.accounts).forEach((k) => {
-          const rAcc = remoteData.accounts[k];
-          if (!rAcc) return;
-          const lAcc = appState.accounts[k] || {};
+      Object.keys(remoteDoctors).forEach((k) => {
+        if (remoteDoctors[k]) {
+          appState.doctors[k] = { ...(appState.doctors[k] || {}), ...remoteDoctors[k] };
+        }
+      });
 
-          const mergedRecords = {
-            ...normalizeRecordsMap(lAcc.records),
-            ...normalizeRecordsMap(rAcc.records)
-          };
+      Object.keys(remoteAccounts).forEach((k) => {
+        const rAcc = remoteAccounts[k];
+        if (!rAcc) return;
+        const lAcc = appState.accounts[k] || {};
 
-          const localEvals = normalizeEvaluationsList(lAcc.vetEvaluations);
-          const remoteEvals = normalizeEvaluationsList(rAcc.vetEvaluations);
-          const evalMap = new Map();
-          [...localEvals, ...remoteEvals].forEach((ev) => {
-            const evKey = ev.id || `${ev.timestamp}_${ev.text}`;
-            evalMap.set(evKey, ev);
-          });
-          const mergedEvals = Array.from(evalMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        const mergedRecords = {
+          ...normalizeRecordsMap(lAcc.records),
+          ...normalizeRecordsMap(rAcc.records)
+        };
 
-          const localUpdated = lAcc.updatedAt || 0;
-          const remoteUpdated = rAcc.updatedAt || 0;
-          const newestStatus = remoteUpdated >= localUpdated
-            ? (rAcc.monitoringStatus || lAcc.monitoringStatus || 'not_started')
-            : (lAcc.monitoringStatus || rAcc.monitoringStatus || 'not_started');
-
-          appState.accounts[k] = {
-            ...lAcc,
-            ...rAcc,
-            monitoringStatus: newestStatus,
-            records: mergedRecords,
-            vetEvaluations: mergedEvals
-          };
+        const localEvals = normalizeEvaluationsList(lAcc.vetEvaluations);
+        const remoteEvals = normalizeEvaluationsList(rAcc.vetEvaluations);
+        const evalMap = new Map();
+        [...localEvals, ...remoteEvals].forEach((ev) => {
+          const evKey = ev.id || `${ev.timestamp}_${ev.text}`;
+          evalMap.set(evKey, ev);
         });
-      }
+        const mergedEvals = Array.from(evalMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        const localUpdated = lAcc.updatedAt || 0;
+        const remoteUpdated = rAcc.updatedAt || 0;
+        const newestStatus = remoteUpdated >= localUpdated
+          ? (rAcc.monitoringStatus || lAcc.monitoringStatus || 'not_started')
+          : (lAcc.monitoringStatus || rAcc.monitoringStatus || 'not_started');
+
+        appState.accounts[k] = {
+          ...lAcc,
+          ...rAcc,
+          monitoringStatus: newestStatus,
+          records: mergedRecords,
+          vetEvaluations: mergedEvals
+        };
+      });
 
       saveLocalState();
       populateDoctorSelectOptions();
+
+      if (currentPatientUsername && !appState.accounts[currentPatientUsername]) {
+        stopWaitingPoll();
+        currentPatientUsername = null;
+        clearActiveSession();
+        navigateToLanding();
+        return;
+      }
+      if (currentVetUsername && !appState.doctors[currentVetUsername]) {
+        currentVetUsername = null;
+        selectedVetPatientUsername = null;
+        clearActiveSession();
+        navigateToLanding();
+        return;
+      }
+
       refreshActiveViewsOnSync();
     }
 
@@ -1026,10 +1062,7 @@
         });
 
         firebaseDb.ref('cat_diabetic_care_data').on('value', (snapshot) => {
-          const val = snapshot.val();
-          if (val) {
-            mergeRemoteData(val);
-          }
+          mergeRemoteData(snapshot.val(), true);
         });
       } catch (err) {
         updateCloudIndicator(false, 'Mode Lokal');
@@ -1052,7 +1085,7 @@
       if (firebaseDb) {
         try {
           const snap = await firebaseDb.ref('cat_diabetic_care_data').once('value');
-          if (snap.val()) mergeRemoteData(snap.val());
+          mergeRemoteData(snap.val(), true);
           return;
         } catch (e) {}
       }
@@ -1060,7 +1093,7 @@
         const res = await fetch(`${getFirebaseUrl().replace(/\/$/, '')}/cat_diabetic_care_data.json`);
         if (res.ok) {
           const data = await res.json();
-          if (data) mergeRemoteData(data);
+          mergeRemoteData(data, true);
         }
       } catch (e) {}
     }
@@ -1112,7 +1145,7 @@
       const modal = document.getElementById('modal-qr');
       const qrBox = document.getElementById('qr-code-box');
       const urlInput = document.getElementById('share-url-input');
-      const cleanUrl = window.location.origin + window.location.pathname;
+      const cleanUrl = window.location.origin + window.location.pathname + '?from=qr';
 
       if (urlInput) urlInput.value = cleanUrl;
       if (qrBox) {
@@ -2125,15 +2158,26 @@
       populateDoctorSelectOptions();
       initFirebaseSync();
 
-      const savedSession = getSavedActiveSession();
-      if (savedSession && savedSession.role === 'patient' && appState.accounts[savedSession.username]) {
-        currentPatientUsername = savedSession.username;
-        enterPatientCard();
-      } else if (savedSession && savedSession.role === 'vet' && appState.doctors[savedSession.username]) {
-        currentVetUsername = savedSession.username;
-        enterVetDashboard();
-      } else {
+      const params = new URLSearchParams(window.location.search);
+      const openedFromQr = params.get('from') === 'qr';
+
+      if (openedFromQr) {
+        clearActiveSession();
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
         navigateToLanding();
+      } else {
+        const savedSession = getSavedActiveSession();
+        if (savedSession && savedSession.role === 'patient' && appState.accounts[savedSession.username]) {
+          currentPatientUsername = savedSession.username;
+          enterPatientCard();
+        } else if (savedSession && savedSession.role === 'vet' && appState.doctors[savedSession.username]) {
+          currentVetUsername = savedSession.username;
+          enterVetDashboard();
+        } else {
+          navigateToLanding();
+        }
       }
 
       if (typeof lucide !== 'undefined') {

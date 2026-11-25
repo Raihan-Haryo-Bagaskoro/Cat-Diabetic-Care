@@ -1155,6 +1155,7 @@
         let currentUploadedMedia = null;
         let isUserEditingForm = false;
         let isSessionAuthenticated = false;
+        let patientLiveSyncTimer = null;
 
         let appState = {
             currentUsername: null,
@@ -1255,6 +1256,7 @@
             try {
                 if (val) {
                     sessionStorage.setItem(LOGGED_OUT_KEY, '1');
+                    localStorage.removeItem(ACTIVE_SESSION_KEY);
                     sessionStorage.removeItem(ACTIVE_SESSION_KEY);
                 } else {
                     sessionStorage.removeItem(LOGGED_OUT_KEY);
@@ -1265,11 +1267,14 @@
         function persistActiveSession() {
             try {
                 if (isSessionAuthenticated && (appState.currentUsername || appState.currentDoctorUsername)) {
-                    sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify({
+                    const sessionPayload = JSON.stringify({
                         role: appState.currentDoctorUsername ? 'doctor' : 'patient',
                         username: appState.currentDoctorUsername || appState.currentUsername
-                    }));
+                    });
+                    localStorage.setItem(ACTIVE_SESSION_KEY, sessionPayload);
+                    sessionStorage.setItem(ACTIVE_SESSION_KEY, sessionPayload);
                 } else {
+                    localStorage.removeItem(ACTIVE_SESSION_KEY);
                     sessionStorage.removeItem(ACTIVE_SESSION_KEY);
                 }
             } catch (e) {}
@@ -1278,7 +1283,7 @@
         function restoreActiveSession() {
             try {
                 if (sessionStorage.getItem(LOGGED_OUT_KEY) === '1') return false;
-                const raw = sessionStorage.getItem(ACTIVE_SESSION_KEY);
+                const raw = sessionStorage.getItem(ACTIVE_SESSION_KEY) || localStorage.getItem(ACTIVE_SESSION_KEY);
                 if (!raw) return false;
                 const sess = JSON.parse(raw);
                 if (!sess || !sess.username) return false;

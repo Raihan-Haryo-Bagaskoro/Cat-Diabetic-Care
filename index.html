@@ -1147,7 +1147,7 @@
         const STORAGE_KEY = 'cat_diabetic_care_prod_v1';
         const CLOUD_URL_KEY = 'cat_diabetic_care_firebase_url';
         const LOGGED_OUT_KEY = 'cat_diabetic_care_logged_out_v1';
-
+        const ACTIVE_SESSION_KEY = 'cat_diabetic_care_active_session_v1';
         const DEFAULT_FIREBASE_DB_URL = 'https://cat-diabetic-care-default-rtdb.asia-southeast1.firebasedatabase.app';
 
         let firebaseDb = null;
@@ -1237,7 +1237,7 @@
         function normalizeEvaluationsList(rawEvals) {
             if (!rawEvals) return [];
             const list = Array.isArray(rawEvals) ? rawEvals.filter(Boolean) : Object.values(rawEvals).filter(Boolean);
-            return list.slice().reverse();
+            return list.slice();
         }
 
         function isMonitoringNotStarted(acc) {
@@ -1255,10 +1255,47 @@
             try {
                 if (val) {
                     sessionStorage.setItem(LOGGED_OUT_KEY, '1');
+                    sessionStorage.removeItem(ACTIVE_SESSION_KEY);
                 } else {
                     sessionStorage.removeItem(LOGGED_OUT_KEY);
                 }
             } catch (e) {}
+        }
+
+        function persistActiveSession() {
+            try {
+                if (isSessionAuthenticated && (appState.currentUsername || appState.currentDoctorUsername)) {
+                    sessionStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify({
+                        role: appState.currentDoctorUsername ? 'doctor' : 'patient',
+                        username: appState.currentDoctorUsername || appState.currentUsername
+                    }));
+                } else {
+                    sessionStorage.removeItem(ACTIVE_SESSION_KEY);
+                }
+            } catch (e) {}
+        }
+
+        function restoreActiveSession() {
+            try {
+                if (sessionStorage.getItem(LOGGED_OUT_KEY) === '1') return false;
+                const raw = sessionStorage.getItem(ACTIVE_SESSION_KEY);
+                if (!raw) return false;
+                const sess = JSON.parse(raw);
+                if (!sess || !sess.username) return false;
+                if (sess.role === 'doctor' && appState.doctors[sess.username]) {
+                    isSessionAuthenticated = true;
+                    appState.currentDoctorUsername = sess.username;
+                    appState.currentUsername = null;
+                    return true;
+                }
+                if (sess.role === 'patient' && appState.accounts[sess.username]) {
+                    isSessionAuthenticated = true;
+                    appState.currentUsername = sess.username;
+                    appState.currentDoctorUsername = null;
+                    return true;
+                }
+            } catch (e) {}
+            return false;
         }
 
         function loadStateFromStorage() {
@@ -1353,7 +1390,7 @@
                     ? remoteAcc.vetEvaluations.filter(Boolean)
                     : (remoteAcc.vetEvaluations ? Object.values(remoteAcc.vetEvaluations).filter(Boolean) : []);
                 const localEvals = Array.isArray(localAcc.vetEvaluations) ? localAcc.vetEvaluations.filter(Boolean) : [];
-                const combinedEvals = localEvals.length >= remoteEvals.length ? localEvals : remoteEvals;
+                const combinedEvals = remoteEvals.length >= localEvals.length ? remoteEvals : localEvals;
 
                 const resolvedMonitoringStatus = remoteAcc.monitoringStatus || localAcc.monitoringStatus || 'not_started';
 
@@ -1380,10 +1417,13 @@
 
             populateDoctorSelectOptions();
 
+            if (isSessionAuthenticated && !document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
+                renderPatientVetFeedback(getCurrentAccount());
+            }
+
             if (!isUserEditingForm) {
                 if (isSessionAuthenticated && !document.getElementById('view-patient').classList.contains('hidden') && getCurrentAccount()) {
                     const acc = getCurrentAccount();
-                    renderPatientVetFeedback(acc);
                     renderDayPills();
                     updatePatientScreenState();
                 }
@@ -1599,11 +1639,19 @@
             populateDoctorSelectOptions();
             generateQrCode();
 
-            isSessionAuthenticated = false;
-            appState.currentUsername = null;
-            appState.currentDoctorUsername = null;
-            appState.selectedVetUsername = null;
-            navigateTo('landing');
+            if (restoreActiveSession()) {
+                if (appState.currentDoctorUsername) {
+                    enterVetPortal();
+                } else if (appState.currentUsername) {
+                    enterPatientCard();
+                }
+            } else {
+                isSessionAuthenticated = false;
+                appState.currentUsername = null;
+                appState.currentDoctorUsername = null;
+                appState.selectedVetUsername = null;
+                navigateTo('landing');
+            }
 
             document.querySelectorAll('input, textarea, select').forEach(el => {
                 el.addEventListener('focus', () => { isUserEditingForm = true; });
@@ -1769,6 +1817,7 @@
             setExplicitLogoutFlag(false);
             isSessionAuthenticated = true;
             appState.currentUsername = acc.username;
+            persistActiveSession();
             saveStateToStorage();
             enterPatientCard();
         }
@@ -1821,6 +1870,7 @@
             setExplicitLogoutFlag(false);
             isSessionAuthenticated = true;
             appState.currentUsername = username;
+            persistActiveSession();
             saveStateToStorage();
             document.getElementById('form-auth-register').reset();
             showToast(`Akun ${namaPasien} berhasil dibuat! Menunggu ${doc ? doc.fullName : 'dokter'} mengaktifkan Mulai Pantau.`);
@@ -1835,6 +1885,7 @@
             setExplicitLogoutFlag(true);
             isSessionAuthenticated = false;
             appState.currentUsername = null;
+            persistActiveSession();
             saveStateToStorage(false);
             navigateTo('landing', event);
             showToast('Anda telah keluar dari akun pasien.');
@@ -1909,6 +1960,7 @@
             setExplicitLogoutFlag(false);
             isSessionAuthenticated = true;
             appState.currentDoctorUsername = doc.username;
+            persistActiveSession();
             saveStateToStorage();
             enterVetPortal();
         }
@@ -1939,6 +1991,7 @@
             setExplicitLogoutFlag(false);
             isSessionAuthenticated = true;
             appState.currentDoctorUsername = username;
+            persistActiveSession();
             saveStateToStorage();
             populateDoctorSelectOptions();
             showToast(`Selamat datang, ${fullName}!`);
@@ -1954,6 +2007,7 @@
             isSessionAuthenticated = false;
             appState.currentDoctorUsername = null;
             appState.selectedVetUsername = null;
+            persistActiveSession();
             saveStateToStorage(false);
             navigateTo('landing', event);
             showToast('Anda telah keluar dari portal dokter.');

@@ -104,7 +104,6 @@
         .animate-fade-in {
             animation: fadeIn 0.25s ease-out forwards;
         }
-        /* Memastikan modal tampil penuh saat dibuka via JS */
         .app-modal-backdrop {
             position: fixed;
             inset: 0;
@@ -1269,7 +1268,6 @@
 
         function getApprovalStatus(acc) {
             if (!acc) return 'pending';
-            // Akun lama yang sudah memiliki catatan atau belum punya field approvalStatus dianggap sudah disetujui
             if (!acc.approvalStatus) {
                 const hasExistingData = Object.keys(normalizeRecordsMap(acc.records)).length > 0 ||
                     (Array.isArray(acc.vetEvaluations) && acc.vetEvaluations.length > 0);
@@ -1365,15 +1363,17 @@
         function applyRemoteSnapshot(cloudData) {
             if (!cloudData || typeof cloudData !== 'object') return;
 
-            const mergedDoctors = { ...(cloudData.doctors || {}), ...(appState.doctors || {}) };
-            Object.entries(cloudData.doctors || {}).forEach(([k, v]) => {
-                if (v && typeof v === 'object') mergedDoctors[k] = { ...mergedDoctors[k], ...v };
+            const mergedDoctors = { ...(cloudData.doctors || {}) };
+            Object.entries(appState.doctors || {}).forEach(([k, localDoc]) => {
+                if (localDoc && typeof localDoc === 'object') {
+                    mergedDoctors[k] = { ...(mergedDoctors[k] || {}), ...localDoc };
+                }
             });
 
-            const mergedAccounts = { ...(cloudData.accounts || {}), ...(appState.accounts || {}) };
-            Object.entries(cloudData.accounts || {}).forEach(([k, remoteAcc]) => {
-                if (!remoteAcc || typeof remoteAcc !== 'object') return;
-                const localAcc = mergedAccounts[k] || {};
+            const mergedAccounts = { ...(cloudData.accounts || {}) };
+            Object.entries(appState.accounts || {}).forEach(([k, localAcc]) => {
+                if (!localAcc || typeof localAcc !== 'object') return;
+                const remoteAcc = mergedAccounts[k] || {};
                 const remoteRecs = normalizeRecordsMap(remoteAcc.records);
                 const localRecs = normalizeRecordsMap(localAcc.records);
                 const combinedRecs = { ...remoteRecs, ...localRecs };
@@ -1384,12 +1384,11 @@
                 const localEvals = Array.isArray(localAcc.vetEvaluations) ? localAcc.vetEvaluations.filter(Boolean) : [];
                 const combinedEvals = localEvals.length >= remoteEvals.length ? localEvals : remoteEvals;
 
-                // Prioritaskan status persetujuan terbaru dari cloud jika dokter mengubahnya
                 const resolvedApprovalStatus = remoteAcc.approvalStatus || localAcc.approvalStatus || 'pending';
 
                 mergedAccounts[k] = {
-                    ...localAcc,
                     ...remoteAcc,
+                    ...localAcc,
                     approvalStatus: resolvedApprovalStatus,
                     records: combinedRecs,
                     vetEvaluations: combinedEvals
@@ -1506,11 +1505,9 @@
 
             if (!isCloudConnected || !firebaseDb) return;
             try {
-                firebaseDb.ref('cat_diabetic_care_data').set({
-                    doctors: appState.doctors || {},
-                    accounts: appState.accounts || {},
-                    updatedAt: Date.now()
-                });
+                firebaseDb.ref('cat_diabetic_care_data/doctors').update(appState.doctors || {});
+                firebaseDb.ref('cat_diabetic_care_data/accounts').update(appState.accounts || {});
+                firebaseDb.ref('cat_diabetic_care_data/updatedAt').set(Date.now());
             } catch (e) {
                 console.warn('Cloud push error:', e);
             }
@@ -1681,9 +1678,7 @@
             if (!toast || !text) return;
             text.textContent = msg;
             toast.classList.remove('hidden');
-            if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                lucide.createIcons();
-            }
+            refreshIconsSafe();
             clearTimeout(toastTimer);
             toastTimer = setTimeout(() => {
                 toast.classList.add('hidden');
@@ -1691,7 +1686,7 @@
         }
 
         // ==========================================
-        // AUTENTIKASI & PERSETUJUAN AKUN PASIEN
+        // AUTENTIKASI PASIEN
         // ==========================================
         function getCurrentAccount() {
             if (!isSessionAuthenticated || !appState.currentUsername) return null;
@@ -1703,16 +1698,16 @@
                 event.preventDefault();
                 event.stopPropagation();
             }
-            isSessionAuthenticated = false;
-            appState.currentUsername = null;
             setExplicitLogoutFlag(false);
-            const loginUserInput = document.getElementById('login-username');
-            const loginPassInput = document.getElementById('login-password');
-            if (loginUserInput) loginUserInput.value = '';
-            if (loginPassInput) loginPassInput.value = '';
-            populateDoctorSelectOptions();
-            switchAuthTab('login');
-            navigateTo('login', event);
+            if (isSessionAuthenticated && getCurrentAccount()) {
+                enterPatientCard();
+            } else {
+                isSessionAuthenticated = false;
+                appState.currentUsername = null;
+                populateDoctorSelectOptions();
+                switchAuthTab('login');
+                navigateTo('login', event);
+            }
         }
 
         function switchAuthTab(tab) {
@@ -1738,29 +1733,56 @@
         function populateDoctorSelectOptions() {
             const select = document.getElementById('reg-dokter');
             if (!select) return;
-            const docs = Object.values(appState.doctors || {}).filter(Boolean);
+            const docs = Object.values(appState.doctors || {});
 
             if (docs.length === 0) {
                 select.innerHTML = `<option value="">-- Belum ada dokter terdaftar (Daftar akun Dokter dulu) --</option>`;
                 return;
             }
 
+            const currentVal = select.value;
             select.innerHTML = docs.map(doc =>
                 `<option value="${escapeHtml(doc.username)}">${escapeHtml(doc.fullName)}${doc.clinic ? ' (' + escapeHtml(doc.clinic) + ')' : ''}</option>`
             ).join('');
+            if (currentVal && appState.doctors[currentVal]) {
+                select.value = currentVal;
+            }
+        }
+
+        function findAccountByCredential(rawUsername) {
+            const clean = String(rawUsername || '').trim().toLowerCase().replace(/\s+/g, '');
+            if (!clean) return null;
+            if (appState.accounts[clean]) return appState.accounts[clean];
+            return Object.values(appState.accounts || {}).find(acc => {
+                if (!acc) return false;
+                const u = String(acc.username || '').trim().toLowerCase().replace(/\s+/g, '');
+                const p = String(acc.namaPasien || '').trim().toLowerCase().replace(/\s+/g, '');
+                return u === clean || p === clean;
+            }) || null;
+        }
+
+        function findDoctorByCredential(rawUsername) {
+            const clean = String(rawUsername || '').trim().toLowerCase().replace(/\s+/g, '');
+            if (!clean) return null;
+            if (appState.doctors[clean]) return appState.doctors[clean];
+            return Object.values(appState.doctors || {}).find(doc => {
+                if (!doc) return false;
+                const u = String(doc.username || '').trim().toLowerCase().replace(/\s+/g, '');
+                return u === clean;
+            }) || null;
         }
 
         async function handleLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value;
+            const rawInput = document.getElementById('login-username').value;
+            const password = String(document.getElementById('login-password').value || '').trim();
 
-            let acc = appState.accounts[username];
-            if (getActiveCloudUrl()) {
+            let acc = findAccountByCredential(rawInput);
+            if (!acc && getActiveCloudUrl()) {
                 const remoteData = await fetchCloudOnceViaRest();
                 if (remoteData) {
                     applyRemoteSnapshot(remoteData);
-                    acc = appState.accounts[username];
+                    acc = findAccountByCredential(rawInput);
                 }
             }
 
@@ -1768,25 +1790,14 @@
                 showToast('Nama akun pasien tidak ditemukan. Silakan daftar pasien baru.');
                 return;
             }
-            if (acc.password !== password) {
+            if (String(acc.password || '').trim() !== password) {
                 showToast('Password salah. Periksa kembali password Anda.');
-                return;
-            }
-
-            const approvalStatus = getApprovalStatus(acc);
-            if (approvalStatus === 'pending') {
-                const doc = appState.doctors[acc.dokterUsername];
-                showToast(`Akun ${acc.namaPasien} masih menunggu persetujuan ${doc ? doc.fullName : 'dokter'}.`);
-                return;
-            }
-            if (approvalStatus === 'rejected') {
-                showToast(`Pengajuan akun ${acc.namaPasien} ditolak oleh dokter. Hubungi dokter penanggung jawab.`);
                 return;
             }
 
             setExplicitLogoutFlag(false);
             isSessionAuthenticated = true;
-            appState.currentUsername = username;
+            appState.currentUsername = acc.username;
             saveStateToStorage();
             enterPatientCard();
         }
@@ -1794,17 +1805,21 @@
         function handleRegister(e) {
             e.preventDefault();
             const username = document.getElementById('reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
-            const password = document.getElementById('reg-password').value;
+            const password = String(document.getElementById('reg-password').value || '').trim();
             const namaPasien = document.getElementById('reg-nama-pasien').value.trim();
             const namaOwner = document.getElementById('reg-nama-owner').value.trim();
             const usia = document.getElementById('reg-usia').value.trim();
             const dokterUsername = document.getElementById('reg-dokter').value;
 
+            if (!username || !password) {
+                showToast('Nama akun dan password wajib diisi.');
+                return;
+            }
             if (!dokterUsername || !appState.doctors[dokterUsername]) {
                 showToast('Pilih Dokter Penanggung Jawab terlebih dahulu (atau buat akun dokter dulu).');
                 return;
             }
-            if (appState.accounts[username]) {
+            if (findAccountByCredential(username)) {
                 showToast('Nama akun sudah dipakai. Gunakan nama akun lain.');
                 return;
             }
@@ -1834,12 +1849,13 @@
                 vetEvaluations: []
             };
 
+            setExplicitLogoutFlag(false);
+            isSessionAuthenticated = true;
+            appState.currentUsername = username;
             saveStateToStorage();
             document.getElementById('form-auth-register').reset();
-            switchAuthTab('login');
-            const loginUserEl = document.getElementById('login-username');
-            if (loginUserEl) loginUserEl.value = username;
-            showToast(`Pengajuan akun ${namaPasien} terkirim! Menunggu persetujuan ${doc ? doc.fullName : 'dokter'}.`);
+            showToast(`Akun ${namaPasien} berhasil diajukan! Menunggu persetujuan ${doc ? doc.fullName : 'dokter'}.`);
+            enterPatientCard();
         }
 
         function logoutPatient(event) {
@@ -1900,15 +1916,15 @@
 
         async function handleVetLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('vet-login-username').value.trim().toLowerCase();
-            const password = document.getElementById('vet-login-password').value;
+            const rawInput = document.getElementById('vet-login-username').value;
+            const password = String(document.getElementById('vet-login-password').value || '').trim();
 
-            let doc = appState.doctors[username];
-            if (getActiveCloudUrl()) {
+            let doc = findDoctorByCredential(rawInput);
+            if (!doc && getActiveCloudUrl()) {
                 const remoteData = await fetchCloudOnceViaRest();
                 if (remoteData) {
                     applyRemoteSnapshot(remoteData);
-                    doc = appState.doctors[username];
+                    doc = findDoctorByCredential(rawInput);
                 }
             }
 
@@ -1916,14 +1932,14 @@
                 showToast('Username dokter tidak ditemukan. Silakan daftar dokter baru.');
                 return;
             }
-            if (doc.password !== password) {
+            if (String(doc.password || '').trim() !== password) {
                 showToast('Password dokter salah.');
                 return;
             }
 
             setExplicitLogoutFlag(false);
             isSessionAuthenticated = true;
-            appState.currentDoctorUsername = username;
+            appState.currentDoctorUsername = doc.username;
             saveStateToStorage();
             enterVetPortal();
         }
@@ -1932,10 +1948,14 @@
             e.preventDefault();
             const fullName = document.getElementById('vet-reg-fullname').value.trim();
             const username = document.getElementById('vet-reg-username').value.trim().toLowerCase().replace(/\s+/g, '');
-            const password = document.getElementById('vet-reg-password').value;
+            const password = String(document.getElementById('vet-reg-password').value || '').trim();
             const clinic = document.getElementById('vet-reg-sip').value.trim();
 
-            if (appState.doctors[username]) {
+            if (!username || !password) {
+                showToast('Username dan password dokter wajib diisi.');
+                return;
+            }
+            if (findDoctorByCredential(username)) {
                 showToast('Username dokter sudah terdaftar.');
                 return;
             }
